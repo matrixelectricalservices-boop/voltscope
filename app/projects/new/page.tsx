@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { addProject } from "@/app/lib/projectStore";
 
 export default function NewProjectPage() {
   const router = useRouter();
@@ -14,15 +15,12 @@ export default function NewProjectPage() {
  function handleSubmit(e: React.FormEvent) {
   e.preventDefault();
 
-  const newProject = {
+  addProject({
     customerName,
     address,
     jobType,
     notes,
-    createdAt: new Date().toISOString(),
-  };
-
-  console.log("New Project:", newProject);
+  });
 
   router.push("/projects");
 }
