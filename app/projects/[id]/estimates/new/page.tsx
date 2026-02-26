@@ -8,7 +8,23 @@ export default function NewEstimatePage() {
   const params = useParams<{ id: string }>();
   const projectId = params?.id;
   const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const [markupPct, setMarkupPct] = useState(30);
+const materialTotal = ASSEMBLIES.reduce((sum, a) => {
+  const qty = quantities[a.id] ?? 0;
+  return sum + qty * a.materialCost;
+}, 0);
 
+const laborHoursTotal = ASSEMBLIES.reduce((sum, a) => {
+  const qty = quantities[a.id] ?? 0;
+  return sum + qty * a.laborHours;
+}, 0);
+
+const laborRate = 95; // change later (settings)
+const laborTotal = laborHoursTotal * laborRate;
+
+const estimateTotal = materialTotal + laborTotal;
+const price = estimateTotal * (1 + markupPct / 100);
+const grossProfit = price - estimateTotal;
   return (
     <main style={{ padding: 24, maxWidth: 900 }}>
       <div style={{ marginBottom: 16 }}>
@@ -48,7 +64,35 @@ export default function NewEstimatePage() {
       </li>
     );
   })}
-</ul>
+</ul> 
+
+<h2 style={{ marginTop: 28, fontSize: 18, fontWeight: 800 }}>Totals</h2>
+
+<div style={{ marginTop: 10, display: "grid", gap: 6 }}>
+  <div>Material: <strong>${materialTotal.toFixed(2)}</strong></div>
+  <div>Labor Hours: <strong>{laborHoursTotal.toFixed(2)}</strong></div>
+  <div>Labor (@ ${laborRate}/hr): <strong>${laborTotal.toFixed(2)}</strong></div>
+  <div style={{ marginTop: 6, fontSize: 18 }}>
+    <div style={{ marginTop: 10 }}>
+  <label style={{ display: "block", fontWeight: 700, marginBottom: 6 }}>
+    Markup %
+  </label>
+  <input
+    type="number"
+    min={0}
+    value={markupPct}
+    onChange={(e) => setMarkupPct(Number(e.target.value))}
+    style={{ width: 120, padding: 6, borderRadius: 8 }}
+  />
+</div>
+    Estimate Total: <div style={{ marginTop: 6, fontSize: 18 }}>
+  Price to Customer: <strong>${price.toFixed(2)}</strong>
+</div>
+<div>
+  Gross Profit: <strong>${grossProfit.toFixed(2)}</strong>
+</div>
+  </div>
+</div>
 
       <p style={{ marginTop: 16 }}>
         Next step: add line items (assemblies), quantities, and totals.
