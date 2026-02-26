@@ -24,3 +24,33 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Make text readable regardless of browser dark mode */
+:root {
+  color-scheme: light;
+}
+body {
+  background: #ffffff;
+  color: #111111;
+}
+/* Force clean light form styling */
+input,
+select,
+textarea {
+  background-color: #ffffff;
+  color: #111111;
+  border: 1px solid #ccc;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border: 1px solid #111111;
+}
+
+button {
+  background-color: #ffffff;
+  color: #111111;
+  border: 1px solid #111111;
+}
