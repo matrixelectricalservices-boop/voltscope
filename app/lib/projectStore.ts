@@ -1,8 +1,10 @@
+import type { EstimateType } from "./estimateTypes";
+
 export type Project = {
   id: string;
   customerName: string;
   address: string;
-  jobType: string;
+  jobType: EstimateType;
   notes: string;
   createdAt: string;
 };

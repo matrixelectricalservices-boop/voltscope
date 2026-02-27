@@ -1,15 +1,21 @@
 "use client";
-
+import { getProjects } from "../../../../lib/projectStore";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 import { ASSEMBLIES } from "@/app/lib/assemblies";
+import { ESTIMATE_TYPES, ALLOWED_ASSEMBLY_IDS, type EstimateType } from "../../../../lib/estimateTypes";
 export default function NewEstimatePage() {
   const params = useParams<{ id: string }>();
   const projectId = params?.id;
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [markupPct, setMarkupPct] = useState(30);
-const materialTotal = ASSEMBLIES.reduce((sum, a) => {
+const project = getProjects().find((p) => p.id === projectId);
+const [estimateType, setEstimateType] = useState<EstimateType>(project?.jobType ?? "Residential");
+
+  const allowedIds = new Set(ALLOWED_ASSEMBLY_IDS[estimateType]);
+const visibleAssemblies = ASSEMBLIES.filter((a) => allowedIds.has(a.id));
+  const materialTotal = ASSEMBLIES.reduce((sum, a) => {
   const qty = quantities[a.id] ?? 0;
   return sum + qty * a.materialCost;
 }, 0);
@@ -35,9 +41,26 @@ const grossProfit = price - estimateTotal;
       <p style={{ marginTop: 8 }}>
         Project ID: <code>{projectId}</code>
       </p>
+<div style={{ marginTop: 16 }}>
+  <label style={{ display: "block", fontWeight: 800, marginBottom: 6 }}>
+    Material Subsets
+  </label>
+  <select
+    value={estimateType}
+    onChange={(e) => setEstimateType(e.target.value as EstimateType)}
+    style={{ padding: 10, borderRadius: 10, minWidth: 240 }}
+  >
+    {ESTIMATE_TYPES.map((t) => (
+      <option key={t.id} value={t.id}>
+        {t.label}
+      </option>
+    ))}
+  </select>
+</div>
+
 <h2 style={{ marginTop: 24, fontSize: 18, fontWeight: 800 }}>Assemblies</h2>
 <ul style={{ marginTop: 10, paddingLeft: 18 }}>
-  {ASSEMBLIES.map((a) => {
+  {visibleAssemblies.map((a) => {
     const qty = quantities[a.id] ?? 0;
 
     return (

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { addProject } from "@/app/lib/projectStore";
+import { ESTIMATE_TYPES } from "@/app/lib/estimateTypes";
 
 export default function NewProjectPage() {
   const router = useRouter();
@@ -64,11 +65,11 @@ export default function NewProjectPage() {
             onChange={(e) => setJobType(e.target.value)}
             style={{ width: "100%", padding: 10, borderRadius: 8, border: "1px solid #ccc" }}
           >
-            <option>Service</option>
-            <option>Remodel</option>
-            <option>Light Commercial</option>
-            <option>Panel Upgrade</option>
-            <option>EV Charger</option>
+            {ESTIMATE_TYPES.map((t) => (
+  <option key={t.id} value={t.id}>
+    {t.label}
+  </option>
+))}
           </select>
         </label>
 
