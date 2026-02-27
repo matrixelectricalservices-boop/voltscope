@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useMemo, useState } from "react";
-
+import { useEffect, useMemo, useState } from "react";
 import { getProjects } from "../../../../lib/projectStore";
 import {
   ESTIMATE_TYPES,
@@ -34,6 +33,43 @@ export default function NewEstimatePage() {
   const [materialSubset, setMaterialSubset] =
     useState<MaterialSubset>("Panels");
 
+    const draftKey = `voltscope:draft-estimate:${projectId ?? "unknown"}`;
+
+useEffect(() => {
+  if (!projectId) return;
+
+  const raw = localStorage.getItem(draftKey);
+  if (!raw) return;
+
+  try {
+    const saved = JSON.parse(raw) as {
+      quantities?: Record<string, number>;
+      markupPct?: number;
+      materialSubset?: MaterialSubset;
+    };
+
+    if (saved.quantities) setQuantities(saved.quantities);
+    if (typeof saved.markupPct === "number") setMarkupPct(saved.markupPct);
+    if (saved.materialSubset) setMaterialSubset(saved.materialSubset);
+  } catch {
+    // ignore bad data
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [projectId]);
+
+function saveDraft() {
+  if (!projectId) return;
+
+  const payload = {
+    quantities,
+    markupPct,
+    materialSubset,
+    savedAt: new Date().toISOString(),
+  };
+
+  localStorage.setItem(draftKey, JSON.stringify(payload));
+}
+
   const visibleAssemblies = useMemo(() => {
   return ASSEMBLIES.filter((a) => a.subset === materialSubset);
 }, [materialSubset]);
@@ -57,35 +93,73 @@ export default function NewEstimatePage() {
 
   return (
     <main style={{ padding: 24, maxWidth: 900 }}>
-      <div style={{ marginBottom: 16 }}>
-        <Link href={`/projects/${projectId}`}>← Back to Project</Link>
-      </div>
+      <div style={{ marginBottom: 16, display: "flex", gap: 12, alignItems: "center" }}>
+  <Link href={`/projects/${projectId}`}>← Back to Project</Link>
+
+  <button
+    type="button"
+    onClick={saveDraft}
+    style={{
+      padding: "8px 12px",
+      borderRadius: 10,
+      border: "1px solid #111",
+      fontWeight: 800,
+      cursor: "pointer",
+    }}
+  >
+    Save
+  </button>
+</div>
 
       <h1 style={{ fontSize: 28, fontWeight: 800 }}>New Estimate</h1>
-      <p style={{ marginTop: 8 }}>
-        Project ID: <code>{projectId}</code>
-      </p>
+
+<div
+  style={{
+    marginTop: 12,
+    padding: 14,
+    border: "1px solid #ddd",
+    borderRadius: 12,
+    background: "#f9f9f9",
+  }}
+>
+  <div style={{ fontSize: 18, fontWeight: 800 }}>
+    {project?.customerName ?? "Unnamed Project"}
+  </div>
+
+  <div style={{ marginTop: 4, fontSize: 14, opacity: 0.85 }}>
+    Type: <strong>{project?.jobType ?? "Unknown"}</strong>
+  </div>
+</div>
 
       {/* Old selector (job type / estimate type) */}
       
 
       {/* NEW selector (material subsets) */}
-      <div style={{ marginTop: 16 }}>
-        <label style={{ display: "block", fontWeight: 800, marginBottom: 6 }}>
-          Material Subsets
-        </label>
-       <select
-  value={materialSubset}
-  onChange={(e) => setMaterialSubset(e.target.value as MaterialSubset)}
-  style={{ padding: 10, borderRadius: 10, minWidth: 240 }}
->
-  {MATERIAL_SUBSETS.map((s) => (
-    <option key={s} value={s}>
-      {s}
-    </option>
-  ))}
-</select>
-      </div>
+     {/* Material Subsets */}
+<div style={{ marginTop: 16 }}>
+  <label style={{ display: "block", fontWeight: 800, marginBottom: 6 }}>
+    Material Subsets
+  </label>
+
+  <select
+    value={materialSubset}
+    onChange={(e) => setMaterialSubset(e.target.value as MaterialSubset)}
+    style={{ padding: 10, borderRadius: 10, minWidth: 240 }}
+  >
+    {MATERIAL_SUBSETS.map((s) => {
+      const count = ASSEMBLIES.reduce((acc, a) => {
+        if (a.subset !== s) return acc;
+        return acc + ((quantities[a.id] ?? 0) > 0 ? 1 : 0);
+      }, 0);
+
+      return (
+        <option key={s} value={s}>
+          {s} ({count})
+        </option>
+      );
+    })}
+  </select>
+</div>
 
       <h2 style={{ marginTop: 24, fontSize: 18, fontWeight: 800 }}>
         Assemblies
@@ -122,34 +196,7 @@ export default function NewEstimatePage() {
         })}
       </ul>
 
-      {/* Quick subset jump + counts (still based on ESTIMATE_TYPES for now) */}
-      <div style={{ marginTop: 18, display: "flex", flexWrap: "wrap", gap: 8 }}>
-        {ESTIMATE_TYPES.map((t) => {
-          const ids = ALLOWED_ASSEMBLY_IDS[t.id];
-          const count = ids.reduce(
-            (acc, id) => acc + ((quantities[id] ?? 0) > 0 ? 1 : 0),
-            0
-          );
-
-          return (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setEstimateType(t.id)}
-              style={{
-                padding: "6px 10px",
-                borderRadius: 999,
-                border: "1px solid #111",
-                fontWeight: 700,
-                cursor: "pointer",
-                opacity: count > 0 || t.id === estimateType ? 1 : 0.6,
-              }}
-            >
-              {t.label} ({count})
-            </button>
-          );
-        })}
-      </div>
+    
 
       {/* Selected Items */}
       <h2 style={{ marginTop: 28, fontSize: 18, fontWeight: 800 }}>
