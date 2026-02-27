@@ -89,6 +89,62 @@ const grossProfit = price - estimateTotal;
   })}
 </ul> 
 
+{/* Quick subset jump + counts */}
+<div style={{ marginTop: 18, display: "flex", flexWrap: "wrap", gap: 8 }}>
+  {ESTIMATE_TYPES.map((t) => {
+    const ids = ALLOWED_ASSEMBLY_IDS[t.id];
+    const count = ids.reduce((acc, id) => acc + ((quantities[id] ?? 0) > 0 ? 1 : 0), 0);
+
+    return (
+      <button
+        key={t.id}
+        type="button"
+        onClick={() => setEstimateType(t.id)}
+        style={{
+          padding: "6px 10px",
+          borderRadius: 999,
+          border: "1px solid #111",
+          fontWeight: 700,
+          cursor: "pointer",
+          opacity: count > 0 || t.id === estimateType ? 1 : 0.6,
+        }}
+      >
+        {t.label} ({count})
+      </button>
+    );
+  })}
+</div>
+{/* Selected Items (across all subsets) */}
+<h2 style={{ marginTop: 28, fontSize: 18, fontWeight: 800 }}>Selected Items</h2>
+
+{(() => {
+  const selected = ASSEMBLIES
+    .map((a) => ({ a, qty: quantities[a.id] ?? 0 }))
+    .filter((x) => x.qty > 0);
+
+  if (selected.length === 0) {
+    return <p style={{ marginTop: 8, opacity: 0.8 }}>No items selected yet.</p>;
+  }
+
+  return (
+    <ul style={{ marginTop: 10, paddingLeft: 18 }}>
+      {selected.map(({ a, qty }) => {
+        const extMat = qty * a.materialCost;
+        const extHrs = qty * a.laborHours;
+        return (
+          <li key={a.id} style={{ marginBottom: 10 }}>
+            <div style={{ fontWeight: 800 }}>
+              {a.name} — <span style={{ fontWeight: 700 }}>{qty}</span> {a.unit}
+            </div>
+            <div style={{ fontSize: 12, opacity: 0.8 }}>
+              Material: ${extMat.toFixed(2)} • Labor: {extHrs.toFixed(2)} hrs
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  );
+})()}
 <h2 style={{ marginTop: 28, fontSize: 18, fontWeight: 800 }}>Totals</h2>
 
 <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
