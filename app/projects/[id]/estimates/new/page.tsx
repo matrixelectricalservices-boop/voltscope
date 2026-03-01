@@ -5,11 +5,9 @@ import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { getProjects } from "../../../../lib/projectStore";
-import {
-  ASSEMBLIES,
-  MATERIAL_SUBSETS,
-  type MaterialSubset,
-} from "../../../../lib/assemblies";
+import { ASSEMBLIES } from "../../../../lib/assemblies";
+
+type ItemType = "Quick Bids";
 
 export default function NewEstimatePage() {
   const params = useParams<{ id: string }>();
@@ -19,6 +17,15 @@ export default function NewEstimatePage() {
 
   const SQFT_ID = "res-new-construction-sqft";
 
+  const ITEM_TYPES: ItemType[] = ["Quick Bids"];
+
+  // ✅ Put your 3 assembly IDs here (must match ASSEMBLIES ids)
+  const QUICK_BID_IDS = [
+    "res-new-construction-sqft",
+    "rec-20a-comm",
+    "rec-20a-resi",
+  ] as const;
+
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [markupPct, setMarkupPct] = useState(30);
   const [laborRate, setLaborRate] = useState(150);
@@ -26,8 +33,7 @@ export default function NewEstimatePage() {
   // $/sqft rate starts at 10, adjustable up/down
   const [sqFtRate, setSqFtRate] = useState(10);
 
-  const [materialSubset, setMaterialSubset] =
-    useState<MaterialSubset>("Panels");
+  const [itemType, setItemType] = useState<ItemType>("Quick Bids");
 
   const draftKey = `voltscope:draft-estimate:${projectId ?? "unknown"}`;
 
@@ -41,14 +47,14 @@ export default function NewEstimatePage() {
       const saved = JSON.parse(raw) as {
         quantities?: Record<string, number>;
         markupPct?: number;
-        materialSubset?: MaterialSubset;
+        itemType?: ItemType;
         laborRate?: number;
         sqFtRate?: number;
       };
 
       if (saved.quantities) setQuantities(saved.quantities);
       if (typeof saved.markupPct === "number") setMarkupPct(saved.markupPct);
-      if (saved.materialSubset) setMaterialSubset(saved.materialSubset);
+      if (saved.itemType) setItemType(saved.itemType);
       if (typeof saved.laborRate === "number") setLaborRate(saved.laborRate);
       if (typeof saved.sqFtRate === "number") setSqFtRate(saved.sqFtRate);
     } catch {
@@ -63,7 +69,7 @@ export default function NewEstimatePage() {
     const payload = {
       quantities,
       markupPct,
-      materialSubset,
+      itemType,
       laborRate,
       sqFtRate,
       savedAt: new Date().toISOString(),
@@ -72,9 +78,14 @@ export default function NewEstimatePage() {
     localStorage.setItem(draftKey, JSON.stringify(payload));
   }
 
-  const visibleAssemblies = useMemo(() => {
-    return ASSEMBLIES.filter((a) => a.subset === materialSubset);
-  }, [materialSubset]);
+ const visibleAssemblies = useMemo(() => {
+  if (itemType === "Quick Bids") {
+    return QUICK_BID_IDS
+      .map((id) => ASSEMBLIES.find((a) => a.id === id))
+      .filter((a): a is (typeof ASSEMBLIES)[number] => Boolean(a));
+  }
+  return [];
+}, [itemType]);
 
   const onlySqFtSelected = useMemo(() => {
     const selectedIds = Object.entries(quantities)
@@ -154,29 +165,22 @@ export default function NewEstimatePage() {
         </div>
       </div>
 
-      {/* Material Subsets (with counts) */}
+      {/* Item Types */}
       <div style={{ marginTop: 16 }}>
         <label style={{ display: "block", fontWeight: 800, marginBottom: 6 }}>
-          Material Subsets
+          Item Types
         </label>
 
         <select
-          value={materialSubset}
-          onChange={(e) => setMaterialSubset(e.target.value as MaterialSubset)}
+          value={itemType}
+          onChange={(e) => setItemType(e.target.value as ItemType)}
           style={{ padding: 10, borderRadius: 10, minWidth: 240 }}
         >
-          {MATERIAL_SUBSETS.map((s) => {
-            const count = ASSEMBLIES.reduce((acc, a) => {
-              if (a.subset !== s) return acc;
-              return acc + ((quantities[a.id] ?? 0) > 0 ? 1 : 0);
-            }, 0);
-
-            return (
-              <option key={s} value={s}>
-                {s} ({count})
-              </option>
-            );
-          })}
+          {ITEM_TYPES.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
         </select>
       </div>
 
@@ -240,19 +244,9 @@ export default function NewEstimatePage() {
                     </button>
 
                     {isSqFt && (
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 6,
-                        }}
-                      >
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                         <span
-                          style={{
-                            fontSize: 12,
-                            fontWeight: 800,
-                            opacity: 0.85,
-                          }}
+                          style={{ fontSize: 12, fontWeight: 800, opacity: 0.85 }}
                         >
                           $ / Sq Ft
                         </span>
@@ -387,9 +381,7 @@ export default function NewEstimatePage() {
                                   min={0}
                                   step={0.25}
                                   value={sqFtRate}
-                                  onChange={(e) =>
-                                    setSqFtRate(Number(e.target.value))
-                                  }
+                                  onChange={(e) => setSqFtRate(Number(e.target.value))}
                                   style={{
                                     width: "100%",
                                     maxWidth: 240,
@@ -432,14 +424,13 @@ export default function NewEstimatePage() {
                               <div style={{ fontWeight: 800 }}>{a.name}</div>
 
                               <div style={{ fontSize: 12, opacity: 0.8, marginTop: 2 }}>
-                                Unit: {a.unit} • Material: $
-                                {a.materialCost.toFixed(2)} • Labor:{" "}
-                                {a.laborHours} hrs
+                                Unit: {a.unit} • Material: ${a.materialCost.toFixed(2)} •
+                                Labor: {a.laborHours} hrs
                               </div>
 
                               <div style={{ fontSize: 12, opacity: 0.8, marginTop: 4 }}>
-                                Ext Material: ${(qty * a.materialCost).toFixed(2)} •
-                                Ext Labor: {(qty * a.laborHours).toFixed(2)} hrs
+                                Ext Material: ${(qty * a.materialCost).toFixed(2)} • Ext
+                                Labor: {(qty * a.laborHours).toFixed(2)} hrs
                               </div>
                             </div>
 
@@ -457,10 +448,7 @@ export default function NewEstimatePage() {
                                 onClick={() =>
                                   setQuantities({
                                     ...quantities,
-                                    [a.id]: Math.max(
-                                      0,
-                                      (quantities[a.id] ?? 0) - 1
-                                    ),
+                                    [a.id]: Math.max(0, (quantities[a.id] ?? 0) - 1),
                                   })
                                 }
                                 style={{
@@ -561,9 +549,7 @@ export default function NewEstimatePage() {
 
             {!onlySqFtSelected && (
               <div style={{ marginTop: 10 }}>
-                <label
-                  style={{ display: "block", fontWeight: 700, marginBottom: 6 }}
-                >
+                <label style={{ display: "block", fontWeight: 700, marginBottom: 6 }}>
                   Labor Rate ($/hr)
                 </label>
                 <input
@@ -579,9 +565,7 @@ export default function NewEstimatePage() {
             )}
 
             <div style={{ marginTop: 10 }}>
-              <label
-                style={{ display: "block", fontWeight: 700, marginBottom: 6 }}
-              >
+              <label style={{ display: "block", fontWeight: 700, marginBottom: 6 }}>
                 Markup %
               </label>
               <input
@@ -606,8 +590,7 @@ export default function NewEstimatePage() {
       </div>
 
       <p style={{ marginTop: 16, opacity: 0.8 }}>
-        Next step: improve assemblies + add “What’s included” / notes per
-        assembly.
+        Next step: improve assemblies + add “What’s included” / notes per assembly.
       </p>
     </main>
   );
