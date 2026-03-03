@@ -1,0 +1,21 @@
+{
+  "defaultState": "NC",
+  "byState": {
+    "NC": { "material": 1.0, "labor": 1.0 },
+
+    "SC": { "material": 0.98, "labor": 0.97 },
+    "GA": { "material": 1.01, "labor": 0.99 },
+    "FL": { "material": 1.05, "labor": 1.04 },
+
+    "TX": { "material": 1.03, "labor": 1.02 },
+    "OH": { "material": 0.97, "labor": 0.95 },
+    "MI": { "material": 1.02, "labor": 1.01 },
+
+    "NY": { "material": 1.18, "labor": 1.35 },
+    "CA": { "material": 1.12, "labor": 1.28 },
+    "WA": { "material": 1.10, "labor": 1.22 },
+
+    "IL": { "material": 1.08, "labor": 1.15 },
+    "CO": { "material": 1.07, "labor": 1.18 }
+  }
+}

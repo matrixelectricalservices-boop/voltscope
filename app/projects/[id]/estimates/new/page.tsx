@@ -3,228 +3,235 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import type { CSSProperties } from "react";
 
 import { getProjects } from "../../../../lib/projectStore";
-import { ASSEMBLIES } from "../../../../lib/assemblies";
+import { priceEstimate, type MaterialLine } from "../../../../lib/pricing/priceEngine";
 
-type ItemType = "Quick Bids";
-
-// ─── UNCW Seahawks Design System ─────────────────────────────────────────────
-const C = {
-  teal: "#00778B",
-  tealDark: "#005F70",
-  tealLight: "#E0F4F7",
-  tealGlow: "rgba(0, 119, 139, 0.18)",
-  gold: "#C8A96E",
-  goldLight: "#F5ECD8",
-  goldGlow: "rgba(200, 169, 110, 0.22)",
-  navy: "#003057",
-  navyMid: "#04406B",
-  navyLight: "#E8EFF6",
-  white: "#FFFFFF",
-  offWhite: "#F7FAFC",
-  ink: "#0A1F33",
-  muted: "rgba(0, 48, 87, 0.52)",
-  divider: "rgba(0, 119, 139, 0.14)",
-  green: "#1A7F5A",
-  greenLight: "rgba(26, 127, 90, 0.12)",
-  red: "#B91C1C",
-  redLight: "rgba(185, 28, 28, 0.10)",
-} as const;
-
-const shadows = {
-  card: "0 4px 24px rgba(0, 48, 87, 0.09), 0 1px 4px rgba(0, 48, 87, 0.06)",
-  raised: "0 8px 32px rgba(0, 48, 87, 0.12), 0 2px 8px rgba(0, 48, 87, 0.07)",
-  teal: "0 4px 20px rgba(0, 119, 139, 0.22)",
-  gold: "0 4px 20px rgba(200, 169, 110, 0.28)",
-  inset: "inset 0 1px 3px rgba(0, 48, 87, 0.08)",
-} as const;
-
-const radius = {
-  sm: 10,
-  md: 14,
-  lg: 18,
-  xl: 22,
-} as const;
-
-const font = {
-  display: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-  body: "'DM Sans', 'Segoe UI', system-ui, sans-serif",
-  mono: "'DM Mono', 'Fira Code', monospace",
-} as const;
-
-// ─── Shared style factories ───────────────────────────────────────────────────
-
-const panelStyle: React.CSSProperties = {
-  background: C.white,
-  border: `1px solid ${C.divider}`,
-  borderRadius: radius.lg,
-  boxShadow: shadows.card,
-  padding: 18,
-  fontFamily: font.body,
+type Draft = {
+  savedAt: string;
+  jobDescription?: string;
+  estimate?: GeneratedEstimate;
+  laborRate?: number;
+  markupPct?: number;
 };
 
-const itemCardStyle: React.CSSProperties = {
-  background: C.offWhite,
-  border: `1px solid ${C.divider}`,
-  borderRadius: radius.md,
-  boxShadow: "0 2px 8px rgba(0,48,87,0.05)",
-  padding: 14,
+type UIState = {
+  isSaved: boolean;
+  lastSavedAt?: string;
 };
 
-const labelStyle: React.CSSProperties = {
-  fontFamily: font.display,
-  fontWeight: 700,
-  fontSize: 11,
-  letterSpacing: 1.2,
-  color: C.teal,
-  textTransform: "uppercase" as const,
+type EstimateLineItem = {
+  id: string;
+  name: string;
+  qty: number;
+  unit: string;
+  notes?: string;
+  confidence?: "high" | "medium" | "low";
 };
 
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "9px 12px",
-  borderRadius: radius.sm,
-  border: `1.5px solid ${C.divider}`,
-  background: C.white,
-  boxShadow: shadows.inset,
-  fontFamily: font.body,
-  fontWeight: 600,
-  fontSize: 14,
-  color: C.ink,
-  outline: "none",
-  boxSizing: "border-box" as const,
+type GeneratedEstimate = {
+  generatedAt: string;
+  summary: string;
+  assumptions: string[];
+  lineItems: EstimateLineItem[];
+
+  // pricing inputs
+  materials: MaterialLine[];
+  laborHours: number;
 };
 
-const selectStyle: React.CSSProperties = {
-  padding: "9px 12px",
-  borderRadius: radius.sm,
-  border: `1.5px solid ${C.divider}`,
-  background: C.white,
-  fontFamily: font.body,
-  fontWeight: 600,
-  fontSize: 14,
-  color: C.ink,
-  width: "100%",
-  outline: "none",
-};
+function uid() {
+  return Math.random().toString(36).slice(2, 10);
+}
 
-const btnPrimary: React.CSSProperties = {
-  padding: "10px 20px",
-  borderRadius: radius.sm,
-  border: `1.5px solid ${C.tealDark}`,
-  background: `linear-gradient(160deg, ${C.teal} 0%, ${C.tealDark} 100%)`,
-  color: C.white,
-  fontFamily: font.display,
-  fontWeight: 700,
-  fontSize: 14,
-  letterSpacing: 0.6,
-  cursor: "pointer",
-  boxShadow: shadows.teal,
-  whiteSpace: "nowrap" as const,
-};
+function clampQty(n: number) {
+  if (!Number.isFinite(n) || n <= 0) return 1;
+  return Math.min(9999, Math.round(n));
+}
 
-const btnNeutral: React.CSSProperties = {
-  padding: "8px 16px",
-  borderRadius: radius.sm,
-  border: `1.5px solid ${C.divider}`,
-  background: C.white,
-  color: C.teal,
-  fontFamily: font.display,
-  fontWeight: 700,
-  fontSize: 13,
-  letterSpacing: 0.4,
-  cursor: "pointer",
-  boxShadow: "0 2px 8px rgba(0,48,87,0.07)",
-  whiteSpace: "nowrap" as const,
-};
+// v0 parser — basic placeholder
+function generateEstimateFromText(raw: string): GeneratedEstimate {
+  const text = raw.trim();
+  const lower = text.toLowerCase();
 
-const btnDanger: React.CSSProperties = {
-  padding: "8px 14px",
-  borderRadius: radius.sm,
-  border: `1.5px solid ${C.red}`,
-  background: C.redLight,
-  color: C.red,
-  fontFamily: font.display,
-  fontWeight: 700,
-  fontSize: 13,
-  letterSpacing: 0.4,
-  cursor: "pointer",
-  whiteSpace: "nowrap" as const,
-};
+  const lineItems: EstimateLineItem[] = [];
+  const assumptions: string[] = [];
 
-const btnIcon: React.CSSProperties = {
-  width: 34,
-  height: 34,
-  borderRadius: 8,
-  border: `1.5px solid ${C.divider}`,
-  background: C.white,
-  color: C.teal,
-  fontFamily: font.body,
-  fontWeight: 700,
-  fontSize: 16,
-  cursor: "pointer",
-  display: "flex" as const,
-  alignItems: "center" as const,
-  justifyContent: "center" as const,
-  flexShrink: 0,
-};
+  const add = (item: Omit<EstimateLineItem, "id">) =>
+    lineItems.push({ id: uid(), ...item });
 
-// ─── Component ────────────────────────────────────────────────────────────────
+  const hasEV = /\bev\b|\be-v\b|charger|chargepoint|tesla|wall connector/.test(lower);
+
+  const ftMatch = lower.match(/(\d{1,4})\s*(ft|feet|foot|')/);
+  const runFt = ftMatch ? clampQty(parseInt(ftMatch[1], 10)) : undefined;
+
+  if (hasEV) {
+    add({
+      name: "EV charger circuit (new branch circuit)",
+      qty: 1,
+      unit: "ea",
+      notes: runFt != null ? `Approx. ${runFt} ft run (from description).` : "Run length not specified.",
+      confidence: runFt != null ? "medium" : "low",
+    });
+
+    const ampsMatch = lower.match(/(\d{2,3})\s*a\b/);
+    const amps = ampsMatch ? parseInt(ampsMatch[1], 10) : undefined;
+
+    if (amps) {
+      add({
+        name: "Circuit breaker (2-pole)",
+        qty: 1,
+        unit: "ea",
+        notes: `${amps}A (from description).`,
+        confidence: "medium",
+      });
+    } else {
+      add({
+        name: "Circuit breaker (2-pole)",
+        qty: 1,
+        unit: "ea",
+        notes: "Assumed 50A unless specified otherwise.",
+        confidence: "low",
+      });
+      assumptions.push("Assumed EV circuit is 50A unless amperage is specified.");
+    }
+
+    const has1450 = /14-?50|nema\s*14\s*-?\s*50|50\s*a\s*receptacle/.test(lower);
+    const hardwired = /hardwire|hard-wired|wall\s*connector/.test(lower);
+
+    if (has1450 && !hardwired) {
+      add({
+        name: "NEMA 14-50 receptacle + cover/box",
+        qty: 1,
+        unit: "ea",
+        confidence: "medium",
+      });
+    } else if (hardwired) {
+      add({
+        name: "EV charger hardwire connection (whip, fittings, strain relief)",
+        qty: 1,
+        unit: "ea",
+        confidence: "medium",
+      });
+    } else {
+      add({
+        name: "EV termination hardware (receptacle OR hardwire)",
+        qty: 1,
+        unit: "ea",
+        notes: "Exact termination type not specified.",
+        confidence: "low",
+      });
+      assumptions.push(
+        "Termination type (NEMA 14-50 vs hardwired) not specified; estimated as a placeholder line item."
+      );
+    }
+
+    if (runFt != null) {
+      add({
+        name: "Branch circuit cable/conduit run",
+        qty: runFt,
+        unit: "ft",
+        notes: "Includes routing material (type TBD after site conditions).",
+        confidence: "medium",
+      });
+    } else {
+      add({
+        name: "Branch circuit cable/conduit run",
+        qty: 1,
+        unit: "lot",
+        notes: "Run length not specified.",
+        confidence: "low",
+      });
+    }
+
+    if (/attic/.test(lower)) assumptions.push("Attic access assumed available.");
+    if (/crawl/.test(lower)) assumptions.push("Crawlspace access assumed available.");
+    if (/garage/.test(lower)) assumptions.push("Work area assumed in/near garage.");
+  }
+
+  const lightMatch = lower.match(/(\d{1,3})\s*(?:new\s*)?(light|lights|fixture|fixtures)\b/);
+  if (lightMatch) {
+    const qty = clampQty(parseInt(lightMatch[1], 10));
+    add({ name: "Install light fixture(s)", qty, unit: "ea", confidence: "medium" });
+  } else if (/\blight(s)?\b|\bfixture(s)?\b/.test(lower)) {
+    add({
+      name: "Install light fixture(s)",
+      qty: 1,
+      unit: "ea",
+      notes: "Quantity not specified.",
+      confidence: "low",
+    });
+    assumptions.push("Lighting quantity not specified; assumed 1 for placeholder.");
+  }
+
+  const recepMatch = lower.match(/(\d{1,3})\s*(receptacle|receptacles|outlet|outlets)\b/);
+  if (recepMatch) {
+    const qty = clampQty(parseInt(recepMatch[1], 10));
+    add({ name: "Install receptacle(s)", qty, unit: "ea", confidence: "medium" });
+  }
+
+  if (/panel\s*upgrade|service\s*upgrade/.test(lower)) {
+    add({
+      name: "Electrical panel/service upgrade",
+      qty: 1,
+      unit: "ea",
+      notes: "Exact amperage and scope TBD.",
+      confidence: "low",
+    });
+    assumptions.push("Panel/service upgrade details TBD (amp rating, utility requirements, permits).");
+  }
+
+  if (lineItems.length === 0 && text.length > 0) {
+    add({
+      name: "General electrical scope (needs breakdown)",
+      qty: 1,
+      unit: "lot",
+      notes: "No recognizable keywords found. Will need a more specific description.",
+      confidence: "low",
+    });
+    assumptions.push("Description too vague for automatic line items; placeholder only.");
+  }
+
+  const summary =
+    hasEV && text.length > 0
+      ? "Detected EV charging-related scope and generated a starter line-item list."
+      : "Generated a starter line-item list from the job description.";
+
+  // Placeholder pricing inputs (you'll expand this later to real skuKey mapping)
+  return {
+    generatedAt: new Date().toISOString(),
+    summary,
+    assumptions,
+    lineItems,
+    materials: [
+      { skuKey: "misc_consumables", qty: 1, unit: "lot", name: "Misc fittings/consumables" },
+    ],
+    laborHours: 4,
+  };
+}
 
 export default function NewEstimatePage() {
   const params = useParams<{ id: string }>();
   const projectId = params?.id;
 
   const project = getProjects().find((p) => p.id === projectId);
-
-  // ✅ multiple sq-ft assemblies
-  const SQFT_IDS = useMemo(
-    () =>
-      new Set<string>([
-        "res-new-construction-sqft",
-        "comm-new-construction-sqft",
-      ]),
-    []
-  );
-
-  const SQFT_DEFAULT_QTY: Record<string, number> = {
-    "res-new-construction-sqft": 1500,
-    "comm-new-construction-sqft": 2500,
-  };
-
-  const ITEM_TYPES: ItemType[] = ["Quick Bids"];
-
-  // ✅ display order is controlled here
-  const QUICK_BID_IDS = [
-    "res-new-construction-sqft",
-    "comm-new-construction-sqft",
-    "ev-charger-50a-lt50ft",
-    "generator-22kw-ts-loadshed",
-    "service-changeout-200a",
-    "service-changeout-400a",
-    "rec-20a-resi",
-    "rec-20a-comm",
-  ] as const;
-
-  const [quantities, setQuantities] = useState<Record<string, number>>({});
-  const [markupPct, setMarkupPct] = useState(30);
-  const [laborRate, setLaborRate] = useState(150);
-
-  // ✅ per-id $/sqft
-  const [sqFtRates, setSqFtRates] = useState<Record<string, number>>({
-    "res-new-construction-sqft": 10,
-    "comm-new-construction-sqft": 20,
-  });
-
-  const getSqFtRate = (id: string) => sqFtRates[id] ?? 0;
-  const setSqFtRate = (id: string, value: number) =>
-    setSqFtRates((prev) => ({ ...prev, [id]: value }));
-
-  const [itemType, setItemType] = useState<ItemType>("Quick Bids");
-
   const draftKey = `voltscope:draft-estimate:${projectId ?? "unknown"}`;
 
+  const [uiState, setUiState] = useState<UIState>({ isSaved: false, lastSavedAt: undefined });
+
+  const [jobDescription, setJobDescription] = useState("");
+  const [estimate, setEstimate] = useState<GeneratedEstimate | null>(null);
+
+  const [markupPct, setMarkupPct] = useState(20);
+  const [laborRate, setLaborRate] = useState(150);
+  const [priced, setPriced] = useState<ReturnType<typeof priceEstimate> | null>(null);
+
+  const [genState, setGenState] = useState<{ status: "idle" | "ready" | "error"; msg?: string }>({
+    status: "idle",
+  });
+
+  // Load draft
   useEffect(() => {
     if (!projectId) return;
 
@@ -232,84 +239,283 @@ export default function NewEstimatePage() {
     if (!raw) return;
 
     try {
-      const saved = JSON.parse(raw) as {
-        quantities?: Record<string, number>;
-        markupPct?: number;
-        itemType?: ItemType;
-        laborRate?: number;
-        sqFtRates?: Record<string, number>;
-      };
+      const saved = JSON.parse(raw) as Partial<Draft>;
 
-      if (saved.quantities) setQuantities(saved.quantities);
-      if (typeof saved.markupPct === "number") setMarkupPct(saved.markupPct);
-      if (saved.itemType) setItemType(saved.itemType);
-      if (typeof saved.laborRate === "number") setLaborRate(saved.laborRate);
-      if (saved.sqFtRates) setSqFtRates(saved.sqFtRates);
+      if (typeof saved.jobDescription === "string") setJobDescription(saved.jobDescription);
+
+      if (typeof saved.laborRate === "number" && Number.isFinite(saved.laborRate)) {
+        setLaborRate(saved.laborRate);
+      }
+      if (typeof saved.markupPct === "number" && Number.isFinite(saved.markupPct)) {
+        setMarkupPct(saved.markupPct);
+      }
+
+      if (saved.estimate && typeof saved.estimate === "object") {
+        setEstimate(saved.estimate as GeneratedEstimate);
+        setGenState({ status: "ready" });
+      }
+
+      if (saved.savedAt) setUiState({ isSaved: true, lastSavedAt: saved.savedAt });
     } catch {
       // ignore
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
+  // Recalculate pricing whenever estimate / laborRate / markupPct changes
+  useEffect(() => {
+    if (!estimate) {
+      setPriced(null);
+      return;
+    }
+
+    const next = priceEstimate({
+      month: "2026-03",
+      state: "NC",
+      laborRate,
+      markupPct,
+      laborHours: estimate.laborHours,
+      materials: estimate.materials,
+    });
+
+    setPriced(next);
+  }, [estimate, laborRate, markupPct]);
+
   function saveDraft() {
     if (!projectId) return;
 
-    localStorage.setItem(
-      draftKey,
-      JSON.stringify({
-        quantities,
-        markupPct,
-        itemType,
-        laborRate,
-        sqFtRates, // ✅
-        savedAt: new Date().toISOString(),
-      })
-    );
+    const payload: Draft = {
+      savedAt: new Date().toISOString(),
+      jobDescription: jobDescription.trim(),
+      estimate: estimate ?? undefined,
+      laborRate,
+      markupPct,
+    };
+
+    localStorage.setItem(draftKey, JSON.stringify(payload));
+    setUiState({ isSaved: true, lastSavedAt: payload.savedAt });
   }
 
-  const visibleAssemblies = useMemo(() => {
-    if (itemType === "Quick Bids") {
-      return QUICK_BID_IDS.map((id) => ASSEMBLIES.find((a) => a.id === id)).filter(
-        (a): a is (typeof ASSEMBLIES)[number] => Boolean(a)
-      );
+ async function handleGenerate() {
+  const text = jobDescription.trim();
+
+  if (!text) {
+    setGenState({ status: "error", msg: "Please enter a job description first." });
+    return;
+  }
+
+  // optional: show a "working" state (keep as idle for now)
+  setGenState({ status: "idle" });
+
+  try {
+    const r = await fetch("/api/estimate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ description: text }),
+    });
+
+    const raw = await r.text();
+
+let data: any = null;
+try {
+  data = JSON.parse(raw);
+} catch {
+  // Not JSON (likely an HTML error page)
+  setGenState({
+    status: "error",
+    msg: `API returned non-JSON (status ${r.status}). First chars: ${raw.slice(0, 40)}`,
+  });
+  return;
+}
+
+    if (!r.ok) {
+      setGenState({ status: "error", msg: data?.error ?? "Failed to generate estimate." });
+      return;
     }
-    return [];
-  }, [itemType]);
 
-  const onlySqFtSelected = useMemo(() => {
-    const positive = Object.entries(quantities)
-      .filter(([, qty]) => (qty ?? 0) > 0)
-      .map(([id]) => id);
+    const generated: GeneratedEstimate = {
+      generatedAt: new Date().toISOString(),
+      summary: data?.summary ?? "AI generated estimate.",
+      assumptions: Array.isArray(data?.assumptions) ? data.assumptions : [],
+      // keep a simple preview row for now (we'll improve later)
+      lineItems: [
+        {
+          id: uid(),
+          name: data?.summary ?? "AI-generated scope",
+          qty: 1,
+          unit: "lot",
+          notes: "Generated by AI from job description.",
+          confidence: "medium",
+        },
+      ],
+      materials: Array.isArray(data?.materials) ? data.materials : [],
+      laborHours: typeof data?.laborHours === "number" ? data.laborHours : 0,
+    };
 
-    return positive.length > 0 && positive.every((id) => SQFT_IDS.has(id));
-  }, [quantities, SQFT_IDS]);
+    setEstimate(generated);
+    setGenState({ status: "ready" });
 
-  const materialTotal = ASSEMBLIES.reduce((sum, a) => {
-    const qty = quantities[a.id] ?? 0;
+    if (projectId) {
+      const payload: Draft = {
+        savedAt: new Date().toISOString(),
+        jobDescription: text,
+        estimate: generated,
+        laborRate,
+        markupPct,
+      };
+      localStorage.setItem(draftKey, JSON.stringify(payload));
+      setUiState({ isSaved: true, lastSavedAt: payload.savedAt });
+    }
+  } catch (e: any) {
+    setGenState({ status: "error", msg: e?.message ?? "Request failed." });
+  }
+}
 
-    if (SQFT_IDS.has(a.id)) return sum + qty * getSqFtRate(a.id);
-    return sum + qty * a.materialCost;
-  }, 0);
+  // ─── UNCW Seahawks Design System ───────────────────────────────────────────
+  const C = {
+    teal: "#00778B",
+    tealDark: "#005F70",
+    tealLight: "#E0F4F7",
+    gold: "#C8A96E",
+    goldLight: "#F5ECD8",
+    navy: "#003057",
+    navyMid: "#04406B",
+    white: "#FFFFFF",
+    offWhite: "#F7FAFC",
+    ink: "#0A1F33",
+    muted: "rgba(0, 48, 87, 0.52)",
+    divider: "rgba(0, 119, 139, 0.14)",
+  } as const;
 
-  const laborHoursTotal = ASSEMBLIES.reduce((sum, a) => {
-    const qty = quantities[a.id] ?? 0;
-    return sum + qty * a.laborHours;
-  }, 0);
+  const shadows = {
+    card: "0 4px 24px rgba(0, 48, 87, 0.09), 0 1px 4px rgba(0, 48, 87, 0.06)",
+    raised: "0 8px 32px rgba(0, 48, 87, 0.12), 0 2px 8px rgba(0, 48, 87, 0.07)",
+    teal: "0 4px 20px rgba(0, 119, 139, 0.22)",
+  } as const;
 
-  const effectiveLaborHours = onlySqFtSelected ? 0 : laborHoursTotal;
-  const laborTotal = effectiveLaborHours * laborRate;
-  const estimateTotal = materialTotal + laborTotal;
-  const price = estimateTotal * (1 + markupPct / 100);
-  const grossProfit = price - estimateTotal;
+  const radius = { sm: 10, md: 14, lg: 18 } as const;
+
+  const font = {
+    display: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+    body: "'DM Sans', 'Segoe UI', system-ui, sans-serif",
+    mono: "'DM Mono', 'Fira Code', monospace",
+  } as const;
+
+  const panelStyle: CSSProperties = {
+    background: C.white,
+    border: `1px solid ${C.divider}`,
+    borderRadius: radius.lg,
+    boxShadow: shadows.card,
+    padding: 18,
+    fontFamily: font.body,
+  };
+
+  const btnPrimary: CSSProperties = {
+    padding: "10px 20px",
+    borderRadius: radius.sm,
+    border: `1.5px solid ${C.tealDark}`,
+    background: `linear-gradient(160deg, ${C.teal} 0%, ${C.tealDark} 100%)`,
+    color: C.white,
+    fontFamily: font.display,
+    fontWeight: 700,
+    fontSize: 14,
+    letterSpacing: 0.6,
+    cursor: "pointer",
+    boxShadow: shadows.teal,
+    whiteSpace: "nowrap",
+  };
+
+  const btnSecondary: CSSProperties = {
+    padding: "10px 14px",
+    borderRadius: radius.sm,
+    border: `1px solid rgba(0, 119, 139, 0.26)`,
+    background: `linear-gradient(180deg, ${C.white} 0%, #F6FBFC 100%)`,
+    color: C.navy,
+    fontFamily: font.display,
+    fontWeight: 800,
+    fontSize: 13,
+    letterSpacing: 0.55,
+    cursor: "pointer",
+    boxShadow: "0 6px 18px rgba(0, 48, 87, 0.08)",
+    whiteSpace: "nowrap",
+  };
+
+  const inputStyle: CSSProperties = {
+    width: "100%",
+    padding: "12px 12px",
+    borderRadius: radius.md,
+    border: `1px solid rgba(0, 119, 139, 0.22)`,
+    outline: "none",
+    fontFamily: font.body,
+    fontSize: 14,
+    lineHeight: 1.4,
+    color: C.ink,
+    background: "linear-gradient(180deg, #FFFFFF 0%, #FBFEFF 100%)",
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.7)",
+  };
+
+  const helperStyle: CSSProperties = {
+    marginTop: 8,
+    fontSize: 12,
+    color: C.muted,
+    fontFamily: font.body,
+  };
+
+  const miniInput: CSSProperties = {
+    width: 120,
+    padding: "8px 10px",
+    borderRadius: radius.md,
+    border: `1px solid rgba(0, 119, 139, 0.22)`,
+    outline: "none",
+    fontFamily: font.mono,
+    fontSize: 13,
+    color: C.ink,
+    background: "linear-gradient(180deg, #FFFFFF 0%, #FBFEFF 100%)",
+  };
+
+  const pill = (tone: "high" | "medium" | "low") => {
+    const map = {
+      high: { bg: "rgba(0,119,139,0.10)", bd: "rgba(0,119,139,0.25)", fg: C.tealDark, label: "High" },
+      medium: { bg: "rgba(200,169,110,0.12)", bd: "rgba(200,169,110,0.35)", fg: C.navy, label: "Med" },
+      low: { bg: "rgba(0,48,87,0.08)", bd: "rgba(0,48,87,0.18)", fg: C.navy, label: "Low" },
+    }[tone];
+
+    return (
+      <span
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "2px 10px",
+          borderRadius: 999,
+          fontFamily: font.display,
+          fontWeight: 800,
+          fontSize: 11,
+          letterSpacing: 0.7,
+          textTransform: "uppercase",
+          background: map.bg,
+          border: `1px solid ${map.bd}`,
+          color: map.fg,
+          whiteSpace: "nowrap",
+        }}
+        title="Parser confidence (v0)"
+      >
+        {map.label}
+      </span>
+    );
+  };
+
+  const canGenerate = useMemo(() => jobDescription.trim().length > 0, [jobDescription]);
 
   return (
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+
         * { box-sizing: border-box; }
         body { margin: 0; background: ${C.offWhite}; }
 
-        .seahawks-page {
+        .page {
           min-height: 100vh;
           background: linear-gradient(160deg, #EAF4F7 0%, #F7FAFC 40%, #F0EBE1 100%);
           padding: 20px;
@@ -329,6 +535,13 @@ export default function NewEstimatePage() {
           flex-wrap: wrap;
         }
 
+        .header-left {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          min-width: 260px;
+        }
+
         .header-accent {
           width: 4px;
           height: 38px;
@@ -343,7 +556,6 @@ export default function NewEstimatePage() {
           gap: 6px;
           text-decoration: none;
           color: rgba(255,255,255,0.75);
-          font-family: ${font.body};
           font-weight: 600;
           font-size: 13px;
           padding: 7px 12px;
@@ -351,6 +563,7 @@ export default function NewEstimatePage() {
           border: 1px solid rgba(255,255,255,0.15);
           background: rgba(255,255,255,0.08);
           transition: background 0.15s, color 0.15s;
+          white-space: nowrap;
         }
         .back-link:hover { background: rgba(255,255,255,0.16); color: ${C.white}; }
 
@@ -370,19 +583,16 @@ export default function NewEstimatePage() {
           font-weight: 500;
         }
 
-        .top-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 14px;
-          margin-top: 14px;
+        .content {
+          max-width: 1160px;
+          margin: 0 auto;
         }
 
-        .main-grid {
+        .grid {
           display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 18px;
-          margin-top: 18px;
-          align-items: start;
+          grid-template-columns: 1fr;
+          gap: 14px;
+          margin-top: 14px;
         }
 
         .panel-title {
@@ -394,34 +604,6 @@ export default function NewEstimatePage() {
           margin: 0;
         }
 
-        .panel-count {
-          font-family: ${font.mono};
-          font-size: 12px;
-          color: ${C.muted};
-          background: ${C.tealLight};
-          border-radius: 20px;
-          padding: 2px 10px;
-        }
-
-        .item-card { transition: box-shadow 0.15s, border-color 0.15s; }
-        .item-card:hover {
-          box-shadow: 0 4px 16px rgba(0,119,139,0.12);
-          border-color: rgba(0,119,139,0.28);
-        }
-
-        .stat-row {
-          display: flex;
-          justify-content: space-between;
-          align-items: baseline;
-          gap: 12px;
-          padding: 8px 0;
-          border-bottom: 1px solid ${C.divider};
-        }
-        .stat-row:last-child { border-bottom: none; }
-
-        .stat-label { font-size: 13px; font-weight: 600; color: ${C.muted}; }
-        .stat-value { font-family: ${font.mono}; font-size: 14px; font-weight: 600; color: ${C.navy}; }
-
         .badge {
           display: inline-block;
           padding: 2px 9px;
@@ -431,559 +613,528 @@ export default function NewEstimatePage() {
           font-size: 11px;
           letter-spacing: 0.8px;
           text-transform: uppercase;
-        }
-
-        .badge-teal {
           background: ${C.tealLight};
           color: ${C.tealDark};
           border: 1px solid rgba(0,119,139,0.20);
+          white-space: nowrap;
         }
 
-        .badge-gold {
-          background: ${C.goldLight};
-          color: ${C.navyMid};
-          border: 1px solid rgba(200,169,110,0.30);
-        }
-
-        .empty-state {
-          padding: 24px 18px;
-          border-radius: ${radius.md}px;
-          border: 1.5px dashed rgba(0,119,139,0.25);
-          text-align: center;
+        .meta-row {
+          margin-top: 6px;
+          font-size: 13px;
           color: ${C.muted};
-          font-size: 14px;
-          font-weight: 500;
-          background: ${C.tealLight};
-          margin-top: 12px;
+        }
+
+        .meta-strong {
+          font-weight: 700;
+          color: ${C.teal};
+        }
+
+        .saved-row {
+          margin-top: 10px;
+          display: flex;
+          gap: 10px;
+          align-items: center;
+          flex-wrap: wrap;
+          color: rgba(255,255,255,0.70);
+          font-size: 12px;
+          font-family: ${font.mono};
         }
 
         @media (max-width: 720px) {
-          .top-grid, .main-grid { grid-template-columns: 1fr; }
+          .header-left { min-width: 0; }
         }
-
-        input[type=number]::-webkit-inner-spin-button,
-        input[type=number]::-webkit-outer-spin-button { opacity: 0.4; }
       `}</style>
 
-      <div className="seahawks-page" style={{ maxWidth: 1160, margin: "0 auto" }}>
-        <div className="header-bar">
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div className="header-accent" />
-            <Link href={`/projects/${projectId}`} className="back-link">
-              ← Back
-            </Link>
-            <div>
-              <div className="header-title">New Estimate</div>
-              <div className="header-sub">
-                {project?.customerName ?? "Unnamed Project"} &nbsp;·&nbsp;{" "}
-                {project?.jobType ?? "Unknown"}
-              </div>
-            </div>
-          </div>
-
-          <button type="button" onClick={saveDraft} style={btnPrimary}>
-            💾 Save Draft
-          </button>
-        </div>
-
-        <div className="top-grid">
-          <div style={panelStyle}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: 12,
-              }}
-            >
-              <h2 className="panel-title">Project</h2>
-              <span className="badge badge-teal">Active</span>
-            </div>
-            <div
-              style={{
-                fontFamily: font.display,
-                fontWeight: 800,
-                fontSize: 18,
-                color: C.navy,
-                letterSpacing: 0.2,
-              }}
-            >
-              {project?.customerName ?? "Unnamed Project"}
-            </div>
-            <div style={{ marginTop: 6, fontSize: 13, color: C.muted }}>
-              Job Type: &nbsp;
-              <span style={{ fontWeight: 700, color: C.teal }}>
-                {project?.jobType ?? "Unknown"}
-              </span>
-            </div>
-          </div>
-
-          <div style={panelStyle}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: 12,
-              }}
-            >
-              <h2 className="panel-title">Item Types</h2>
-              <span className="badge badge-gold">Template</span>
-            </div>
-            <label style={labelStyle}>Select a Template Set</label>
-            <div style={{ marginTop: 8 }}>
-              <select
-                value={itemType}
-                onChange={(e) => setItemType(e.target.value as ItemType)}
-                style={selectStyle}
-              >
-                {ITEM_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <div className="main-grid">
-          {/* LEFT */}
-          <div style={panelStyle}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: 14,
-              }}
-            >
-              <h2 className="panel-title">Assemblies</h2>
-              <span className="panel-count">{visibleAssemblies.length} items</span>
-            </div>
-
-            <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 10 }}>
-              {visibleAssemblies.map((a) => {
-                const isSqFt = SQFT_IDS.has(a.id);
-                const materialDisplay = isSqFt ? getSqFtRate(a.id) : a.materialCost;
-                const defaultQty = SQFT_DEFAULT_QTY[a.id] ?? 0;
-
-                return (
-                  <li key={a.id} className="item-card" style={itemCardStyle}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-                      <div style={{ flex: "1 1 auto", minWidth: 0 }}>
-                        <div
-                          style={{
-                            fontFamily: font.display,
-                            fontWeight: 800,
-                            fontSize: 15,
-                            color: C.navy,
-                            letterSpacing: 0.2,
-                            lineHeight: 1.2,
-                          }}
-                        >
-                          {a.name}
-                        </div>
-
-                        {!isSqFt && (
-                          <div style={{ fontSize: 13, color: C.muted, marginTop: 5, lineHeight: 1.5 }}>
-                            <span className="badge badge-teal" style={{ marginRight: 6 }}>
-                              {a.unit}
-                            </span>
-                            Material: <strong style={{ color: C.teal }}>${materialDisplay.toFixed(2)}</strong>
-                            &nbsp;·&nbsp; Labor: <strong style={{ color: C.teal }}>{a.laborHours} hrs</strong>
-                          </div>
-                        )}
-
-                        {isSqFt && (
-                          <div style={{ fontSize: 13, color: C.muted, marginTop: 5 }}>
-                            Quick bid by square footage — defaults to {defaultQty.toLocaleString()} sq ft
-                          </div>
-                        )}
-                      </div>
-
-                      {!isSqFt && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setQuantities({ ...quantities, [a.id]: (quantities[a.id] ?? 0) + 1 })
-                          }
-                          style={btnNeutral}
-                        >
-                          + Add
-                        </button>
-                      )}
-                    </div>
-
-                    {isSqFt && (
-                      <div
-                        style={{
-                          marginTop: 12,
-                          display: "grid",
-                          gridTemplateColumns: "1fr 1fr auto",
-                          gap: 10,
-                          alignItems: "end",
-                        }}
-                      >
-                        <div style={{ display: "grid", gap: 5 }}>
-                          <label style={labelStyle}>Sq Ft</label>
-                          <input
-                            type="number"
-                            inputMode="numeric"
-                            min={0}
-                            step={1}
-                            value={quantities[a.id] ?? defaultQty}
-                            onChange={(e) =>
-                              setQuantities({
-                                ...quantities,
-                                [a.id]: e.target.value === "" ? 0 : Number(e.target.value),
-                              })
-                            }
-                            onFocus={() => {
-                              if (!Object.prototype.hasOwnProperty.call(quantities, a.id)) {
-                                setQuantities({ ...quantities, [a.id]: defaultQty });
-                              }
-                            }}
-                            style={inputStyle}
-                          />
-                        </div>
-
-                        <div style={{ display: "grid", gap: 5 }}>
-                          <label style={labelStyle}>$ / Sq Ft</label>
-                          <input
-                            type="number"
-                            inputMode="decimal"
-                            min={0}
-                            step={0.25}
-                            value={getSqFtRate(a.id)}
-                            onChange={(e) => setSqFtRate(a.id, Number(e.target.value))}
-                            style={inputStyle}
-                          />
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (!Object.prototype.hasOwnProperty.call(quantities, a.id)) {
-                              setQuantities({ ...quantities, [a.id]: defaultQty });
-                            }
-                          }}
-                          style={btnNeutral}
-                        >
-                          Add
-                        </button>
-                      </div>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-
-          {/* RIGHT */}
-          <div style={{ display: "grid", gap: 14 }}>
-            <div style={panelStyle}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-                <h2 className="panel-title">Selected Items</h2>
-                <span className="panel-count">{Object.keys(quantities).length} tracked</span>
-              </div>
-
-              {(() => {
-                const selected = ASSEMBLIES.map((a) => ({
-                  a,
-                  qty: quantities[a.id] ?? 0,
-                })).filter(({ a, qty }) => {
-                  const hasKey = Object.prototype.hasOwnProperty.call(quantities, a.id);
-                  const isSqFt = SQFT_IDS.has(a.id);
-                  return isSqFt ? hasKey : qty > 0;
-                });
-
-                if (selected.length === 0) {
-                  return <div className="empty-state">No items selected yet. Add an assembly from the left panel.</div>;
-                }
-
-                return (
-                  <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 10 }}>
-                    {selected.map(({ a, qty }) => {
-                      const isSqFt = SQFT_IDS.has(a.id);
-
-                      return (
-                        <li key={a.id} className="item-card" style={itemCardStyle}>
-                          {isSqFt ? (
-                            <div>
-                              <div style={{ fontFamily: font.display, fontWeight: 800, fontSize: 15, color: C.navy, letterSpacing: 0.2 }}>
-                                {a.name}
-                              </div>
-
-                              <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 10, alignItems: "end" }}>
-                                <div style={{ display: "grid", gap: 5 }}>
-                                  <label style={labelStyle}>Sq Ft</label>
-                                  <input
-                                    type="number"
-                                    inputMode="numeric"
-                                    min={0}
-                                    step={1}
-                                    value={qty}
-                                    onChange={(e) =>
-                                      setQuantities({
-                                        ...quantities,
-                                        [a.id]: e.target.value === "" ? 0 : Number(e.target.value),
-                                      })
-                                    }
-                                    style={inputStyle}
-                                  />
-                                </div>
-
-                                <div style={{ display: "grid", gap: 5 }}>
-                                  <label style={labelStyle}>$ / Sq Ft</label>
-                                  <input
-                                    type="number"
-                                    inputMode="decimal"
-                                    min={0}
-                                    step={0.25}
-                                    value={getSqFtRate(a.id)}
-                                    onChange={(e) => setSqFtRate(a.id, Number(e.target.value))}
-                                    style={inputStyle}
-                                  />
-                                </div>
-
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const next = { ...quantities };
-                                    delete next[a.id];
-                                    setQuantities(next);
-                                  }}
-                                  style={btnDanger}
-                                >
-                                  Remove
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div>
-                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-                                <div style={{ flex: "1 1 auto", minWidth: 0 }}>
-                                  <div style={{ fontFamily: font.display, fontWeight: 800, fontSize: 15, color: C.navy, letterSpacing: 0.2, lineHeight: 1.2 }}>
-                                    {a.name}
-                                  </div>
-
-                                  <div style={{ fontSize: 13, color: C.muted, marginTop: 5 }}>
-                                    <span className="badge badge-teal" style={{ marginRight: 6 }}>
-                                      {a.unit}
-                                    </span>
-                                    Material: <strong style={{ color: C.teal }}>${a.materialCost.toFixed(2)}</strong>
-                                    &nbsp;·&nbsp; Labor: <strong style={{ color: C.teal }}>{a.laborHours} hrs</strong>
-                                  </div>
-
-                                  <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>
-                                    Ext Material: <strong style={{ color: C.navy }}>${(qty * a.materialCost).toFixed(2)}</strong>
-                                    &nbsp;·&nbsp; Ext Labor: <strong style={{ color: C.navy }}>{(qty * a.laborHours).toFixed(2)} hrs</strong>
-                                  </div>
-                                </div>
-
-                                <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setQuantities({
-                                        ...quantities,
-                                        [a.id]: Math.max(0, (quantities[a.id] ?? 0) - 1),
-                                      })
-                                    }
-                                    style={btnIcon}
-                                  >
-                                    –
-                                  </button>
-
-                                  <div
-                                    style={{
-                                      minWidth: 38,
-                                      textAlign: "center",
-                                      fontFamily: font.mono,
-                                      fontWeight: 700,
-                                      fontSize: 14,
-                                      color: C.navy,
-                                      padding: "5px 8px",
-                                      borderRadius: 8,
-                                      border: `1.5px solid ${C.divider}`,
-                                      background: C.white,
-                                    }}
-                                  >
-                                    {qty}
-                                  </div>
-
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setQuantities({
-                                        ...quantities,
-                                        [a.id]: (quantities[a.id] ?? 0) + 1,
-                                      })
-                                    }
-                                    style={btnIcon}
-                                  >
-                                    +
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const next = { ...quantities };
-                                      delete next[a.id];
-                                      setQuantities(next);
-                                    }}
-                                    style={btnDanger}
-                                  >
-                                    Remove
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                );
-              })()}
-            </div>
-
-            <div style={panelStyle}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-                <h2 className="panel-title">Totals</h2>
-                <span style={{ fontSize: 12, color: C.muted, fontWeight: 500 }}>Auto-calculated</span>
-              </div>
-
-              <div
-                style={{
-                  background: C.offWhite,
-                  borderRadius: radius.md,
-                  padding: "10px 14px",
-                  border: `1px solid ${C.divider}`,
-                  marginBottom: 12,
-                }}
-              >
-                {onlySqFtSelected ? (
-                  <div className="stat-row">
-                    <span className="stat-label">Sq Ft Total</span>
-                    <span className="stat-value">${materialTotal.toFixed(2)}</span>
+      <div className="page">
+        <div className="content">
+          {/* Header */}
+          <div className="header-bar">
+            <div className="header-left">
+              <div className="header-accent" />
+              <Link href={`/projects/${projectId}`} className="back-link">
+                ← Back
+              </Link>
+              <div>
+                <div className="header-title">New Estimate</div>
+                <div className="header-sub">
+                  {project?.customerName ?? "Unnamed Project"} &nbsp;·&nbsp; {project?.jobType ?? "Unknown"}
+                </div>
+                {uiState.isSaved && uiState.lastSavedAt && (
+                  <div className="saved-row">
+                    Last saved: {new Date(uiState.lastSavedAt).toLocaleString()}
                   </div>
-                ) : (
-                  <>
-                    <div className="stat-row">
-                      <span className="stat-label">Material</span>
-                      <span className="stat-value">${materialTotal.toFixed(2)}</span>
-                    </div>
-                    <div className="stat-row">
-                      <span className="stat-label">Labor Hours</span>
-                      <span className="stat-value">{laborHoursTotal.toFixed(2)} hrs</span>
-                    </div>
-                    <div className="stat-row">
-                      <span className="stat-label">Labor Cost</span>
-                      <span className="stat-value">${laborTotal.toFixed(2)}</span>
-                    </div>
-                  </>
                 )}
               </div>
+            </div>
 
-              {!onlySqFtSelected && (
-                <div style={{ marginBottom: 12 }}>
-                  <label style={labelStyle}>Labor Rate ($ / hr)</label>
-                  <div style={{ marginTop: 6 }}>
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      min={0}
-                      step={1}
-                      value={laborRate}
-                      onChange={(e) => setLaborRate(Number(e.target.value))}
-                      style={inputStyle}
-                    />
-                  </div>
-                </div>
-              )}
+            <button type="button" onClick={saveDraft} style={btnPrimary}>
+              💾 Save Draft
+            </button>
+          </div>
 
-              <div style={{ marginBottom: 14 }}>
-                <label style={labelStyle}>Markup %</label>
-                <div style={{ marginTop: 6 }}>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    min={0}
-                    step={1}
-                    value={markupPct}
-                    onChange={(e) => setMarkupPct(Number(e.target.value))}
-                    style={inputStyle}
-                  />
-                </div>
+          <div className="grid">
+            {/* Project Info Block */}
+            <div style={panelStyle}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: 12,
+                  gap: 12,
+                  flexWrap: "wrap",
+                }}
+              >
+                <h2 className="panel-title">Project</h2>
+                <span className="badge">Active</span>
               </div>
 
               <div
                 style={{
-                  padding: "16px 18px",
-                  borderRadius: radius.md,
-                  background: `linear-gradient(135deg, ${C.navy} 0%, ${C.navyMid} 100%)`,
-                  boxShadow: shadows.raised,
+                  fontFamily: font.display,
+                  fontWeight: 800,
+                  fontSize: 18,
+                  color: C.navy,
+                  letterSpacing: 0.2,
                 }}
               >
-                <div
-                  style={{
-                    fontFamily: font.display,
-                    fontWeight: 700,
-                    fontSize: 11,
-                    letterSpacing: 1.4,
-                    color: C.gold,
-                    textTransform: "uppercase",
-                    marginBottom: 4,
-                  }}
-                >
-                  Price to Customer
-                </div>
+                {project?.customerName ?? "Unnamed Project"}
+              </div>
 
-                <div
-                  style={{
-                    fontFamily: font.display,
-                    fontWeight: 800,
-                    fontSize: 36,
-                    color: C.white,
-                    letterSpacing: -0.5,
-                    lineHeight: 1,
-                  }}
-                >
-                  ${price.toFixed(2)}
-                </div>
+              <div className="meta-row">
+                Job Type: <span className="meta-strong">{project?.jobType ?? "Unknown"}</span>
+              </div>
 
-                <div
+              {projectId && <div className="meta-row">Project ID: {projectId}</div>}
+            </div>
+
+            {/* Job Description */}
+            <div style={panelStyle}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: 12,
+                  gap: 12,
+                  flexWrap: "wrap",
+                }}
+              >
+                <h2 className="panel-title">Job Description</h2>
+                <span className="badge">Input</span>
+              </div>
+
+              <textarea
+                value={jobDescription}
+                onChange={(e) => {
+                  setJobDescription(e.target.value);
+                  if (genState.status === "error") setGenState({ status: "idle" });
+                }}
+                placeholder="Describe the job scope... (example: Install EV charger in garage, 25ft run through attic, new 60A breaker, permit included)"
+                rows={6}
+                style={inputStyle}
+              />
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  alignItems: "center",
+                  marginTop: 12,
+                  flexWrap: "wrap",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={handleGenerate}
                   style={{
-                    marginTop: 10,
-                    paddingTop: 10,
-                    borderTop: "1px solid rgba(255,255,255,0.12)",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
+                    ...btnSecondary,
+                    opacity: canGenerate ? 1 : 0.55,
+                    cursor: canGenerate ? "pointer" : "not-allowed",
                   }}
+                  disabled={!canGenerate}
+                  title={!canGenerate ? "Enter a job description to generate." : "Generate a starter estimate."}
                 >
-                  <span style={{ fontSize: 13, color: "rgba(255,255,255,0.60)", fontWeight: 500 }}>
-                    Gross Profit
-                  </span>
+                  ⚡ Generate Estimate
+                </button>
+
+                {genState.status === "error" && (
                   <span
                     style={{
                       fontFamily: font.mono,
-                      fontWeight: 700,
-                      fontSize: 16,
-                      color: C.gold,
+                      fontSize: 12,
+                      color: "rgba(160, 24, 24, 0.85)",
+                      background: "rgba(255, 235, 235, 0.8)",
+                      border: "1px solid rgba(160, 24, 24, 0.18)",
+                      padding: "6px 10px",
+                      borderRadius: 999,
                     }}
                   >
-                    ${grossProfit.toFixed(2)}
+                    {genState.msg}
                   </span>
-                </div>
+                )}
+
+                {estimate?.generatedAt && genState.status === "ready" && (
+                  <span
+                    style={{
+                      fontFamily: font.mono,
+                      fontSize: 12,
+                      color: "rgba(255,255,255,0.85)",
+                      background: "rgba(0, 48, 87, 0.25)",
+                      border: "1px solid rgba(255,255,255,0.16)",
+                      padding: "6px 10px",
+                      borderRadius: 999,
+                    }}
+                  >
+                    Generated: {new Date(estimate.generatedAt).toLocaleString()}
+                  </span>
+                )}
               </div>
 
-              <div style={{ marginTop: 12, fontSize: 12, color: C.muted, fontStyle: "italic" }}>
-                Next: add "What's Included" notes per assembly.
+              <div style={helperStyle}>
+                Tip: Include distances, voltage/amps, number of devices, and any access details (attic/crawlspace,
+                trenching, etc).
               </div>
             </div>
+
+            {/* Generated Estimate Preview */}
+            {estimate && (
+              <div style={panelStyle}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    marginBottom: 12,
+                    gap: 12,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <h2 className="panel-title">Generated Estimate (Preview)</h2>
+                  <span className="badge">Draft</span>
+                </div>
+
+                <div style={{ fontFamily: font.body, fontSize: 14, color: C.ink, marginBottom: 10 }}>
+                  <span style={{ fontWeight: 800, color: C.navy }}>Summary:</span> {estimate.summary}
+                </div>
+
+                {estimate.assumptions.length > 0 && (
+                  <div
+                    style={{
+                      marginBottom: 12,
+                      padding: 12,
+                      borderRadius: radius.md,
+                      background: "linear-gradient(180deg, #FBFCFE 0%, #F5FAFB 100%)",
+                      border: `1px solid ${C.divider}`,
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontFamily: font.display,
+                        fontWeight: 800,
+                        letterSpacing: 0.35,
+                        color: C.navy,
+                        marginBottom: 6,
+                      }}
+                    >
+                      Assumptions
+                    </div>
+                    <ul style={{ margin: 0, paddingLeft: 18, color: C.muted, fontSize: 13 }}>
+                      {estimate.assumptions.map((a, i) => (
+                        <li key={i} style={{ marginTop: i === 0 ? 0 : 6 }}>
+                          {a}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <div style={{ border: `1px solid ${C.divider}`, borderRadius: radius.md, overflow: "hidden" }}>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1.2fr 0.4fr 0.4fr 0.6fr",
+                      background: `linear-gradient(180deg, ${C.tealLight} 0%, #F6FBFC 100%)`,
+                      padding: "10px 12px",
+                      fontFamily: font.display,
+                      fontWeight: 800,
+                      color: C.navy,
+                      letterSpacing: 0.4,
+                      fontSize: 12,
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    <div>Item</div>
+                    <div style={{ textAlign: "right" }}>Qty</div>
+                    <div style={{ textAlign: "center" }}>Unit</div>
+                    <div style={{ textAlign: "right" }}>Confidence</div>
+                  </div>
+
+                  {estimate.lineItems.map((li) => (
+                    <div
+                      key={li.id}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "1.2fr 0.4fr 0.4fr 0.6fr",
+                        padding: "12px 12px",
+                        borderTop: `1px solid ${C.divider}`,
+                        alignItems: "start",
+                        gap: 10,
+                        background: C.white,
+                      }}
+                    >
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontWeight: 800, color: C.navy, fontSize: 14, lineHeight: 1.25 }}>
+                          {li.name}
+                        </div>
+                        {li.notes && (
+                          <div style={{ marginTop: 4, fontSize: 12, color: C.muted, lineHeight: 1.35 }}>
+                            {li.notes}
+                          </div>
+                        )}
+                      </div>
+
+                      <div style={{ textAlign: "right", fontFamily: font.mono, color: C.ink, fontSize: 13 }}>
+                        {li.qty}
+                      </div>
+
+                      <div style={{ textAlign: "center", fontFamily: font.mono, color: C.muted, fontSize: 13 }}>
+                        {li.unit}
+                      </div>
+
+                      <div style={{ textAlign: "right" }}>{pill(li.confidence ?? "low")}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ marginTop: 10, fontSize: 12, color: C.muted, fontFamily: font.mono }}>
+                  v0 parser: Starter breakdown only. Next we’ll map line items → real skuKey materials + labor rules.
+                </div>
+              </div>
+            )}
+
+            {/* Totals + Editable Inputs */}
+            {priced && (
+              <div style={panelStyle}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    marginBottom: 12,
+                    gap: 12,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <h2 className="panel-title">Totals</h2>
+
+                  <span className="badge">Pricing</span>
+                </div>
+                {/* Materials List */}
+<div
+  style={{
+    marginBottom: 12,
+    border: `1px solid ${C.divider}`,
+    borderRadius: radius.md,
+    overflow: "hidden",
+  }}
+>
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns: "1.2fr 0.35fr 0.55fr 0.55fr",
+      gap: 0,
+      background: `linear-gradient(180deg, ${C.tealLight} 0%, #F6FBFC 100%)`,
+      padding: "10px 12px",
+      fontFamily: font.display,
+      fontWeight: 800,
+      color: C.navy,
+      letterSpacing: 0.4,
+      fontSize: 12,
+      textTransform: "uppercase",
+    }}
+  >
+    <div>Material</div>
+    <div style={{ textAlign: "right" }}>Qty</div>
+    <div style={{ textAlign: "right" }}>Unit</div>
+    <div style={{ textAlign: "right" }}>Line Total</div>
+  </div>
+
+  {priced.pricedMaterials.map((m) => (
+    <div
+      key={m.skuKey}
+      style={{
+        display: "grid",
+        gridTemplateColumns: "1.2fr 0.35fr 0.55fr 0.55fr",
+        padding: "12px 12px",
+        borderTop: `1px solid ${C.divider}`,
+        alignItems: "start",
+        gap: 10,
+        background: m.missingFromPricebook ? "rgba(200,169,110,0.10)" : C.white,
+      }}
+    >
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontWeight: 800, color: C.navy, fontSize: 14, lineHeight: 1.25 }}>
+          {m.name}
+        </div>
+        <div style={{ marginTop: 4, fontSize: 12, color: C.muted, fontFamily: font.mono }}>
+          {m.skuKey}
+          {m.missingFromPricebook ? " · missing from price book" : ""}
+        </div>
+      </div>
+
+      <div style={{ textAlign: "right", fontFamily: font.mono, color: C.ink, fontSize: 13 }}>
+        {m.qty}
+      </div>
+
+      <div style={{ textAlign: "right", fontFamily: font.mono, color: C.muted, fontSize: 13 }}>
+        {m.unit} @ ${m.adjUnitCost.toFixed(2)}
+      </div>
+
+      <div style={{ textAlign: "right", fontFamily: font.mono, color: C.ink, fontSize: 13 }}>
+        ${m.lineTotal.toFixed(2)}
+      </div>
+    </div>
+  ))}
+</div>
+
+
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 12,
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    marginBottom: 12,
+                  }}
+                >
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <span style={{ fontFamily: font.display, fontWeight: 800, color: C.navy }}>
+                      Labor Rate
+                    </span>
+                    <input
+                      style={miniInput}
+                      inputMode="numeric"
+                      value={laborRate}
+                      onChange={(e) => {
+                        const v = Number(e.target.value);
+                        setLaborRate(Number.isFinite(v) ? v : 0);
+                      }}
+                      onBlur={saveDraft}
+                    />
+                    <span style={{ fontFamily: font.mono, color: C.muted, fontSize: 12 }}>/hr</span>
+                  </div>
+
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <span style={{ fontFamily: font.display, fontWeight: 800, color: C.navy }}>
+                      Markup
+                    </span>
+                    <input
+                      style={miniInput}
+                      inputMode="numeric"
+                      value={markupPct}
+                      onChange={(e) => {
+                        const v = Number(e.target.value);
+                        setMarkupPct(Number.isFinite(v) ? v : 0);
+                      }}
+                      onBlur={saveDraft}
+                    />
+                    <span style={{ fontFamily: font.mono, color: C.muted, fontSize: 12 }}>%</span>
+                  </div>
+
+                  <button type="button" onClick={saveDraft} style={btnSecondary}>
+                    💾 Save Pricing
+                  </button>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <div
+                    style={{
+                      padding: 12,
+                      borderRadius: radius.md,
+                      border: `1px solid ${C.divider}`,
+                      background: "linear-gradient(180deg, #FFFFFF 0%, #FBFEFF 100%)",
+                    }}
+                  >
+                    <div style={{ fontFamily: font.display, fontWeight: 800, color: C.navy }}>Material Total</div>
+                    <div style={{ fontFamily: font.mono, fontSize: 18, marginTop: 6 }}>
+                      ${priced.materialTotal.toFixed(2)}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      padding: 12,
+                      borderRadius: radius.md,
+                      border: `1px solid ${C.divider}`,
+                      background: "linear-gradient(180deg, #FFFFFF 0%, #FBFEFF 100%)",
+                    }}
+                  >
+                    <div style={{ fontFamily: font.display, fontWeight: 800, color: C.navy }}>Labor Total</div>
+                    <div style={{ fontFamily: font.mono, fontSize: 18, marginTop: 6 }}>
+                      ${priced.laborTotal.toFixed(2)}
+                    </div>
+                    <div style={{ marginTop: 6, fontSize: 12, color: C.muted, fontFamily: font.mono }}>
+                      {estimate?.laborHours ?? 0} hrs @ ${laborRate}/hr
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      padding: 12,
+                      borderRadius: radius.md,
+                      border: `1px solid ${C.divider}`,
+                      background: "linear-gradient(180deg, #FFFFFF 0%, #FBFEFF 100%)",
+                    }}
+                  >
+                    <div style={{ fontFamily: font.display, fontWeight: 800, color: C.navy }}>Subtotal</div>
+                    <div style={{ fontFamily: font.mono, fontSize: 18, marginTop: 6 }}>
+                      ${priced.subtotal.toFixed(2)}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      padding: 12,
+                      borderRadius: radius.md,
+                      border: `1px solid ${C.divider}`,
+                      background: "linear-gradient(180deg, #FFFFFF 0%, #FBFEFF 100%)",
+                    }}
+                  >
+                    <div style={{ fontFamily: font.display, fontWeight: 800, color: C.navy }}>Profit (Markup)</div>
+                    <div style={{ fontFamily: font.mono, fontSize: 18, marginTop: 6 }}>
+                      ${priced.profit.toFixed(2)}
+                    </div>
+                    <div style={{ marginTop: 6, fontSize: 12, color: C.muted, fontFamily: font.mono }}>
+                      Markup: {markupPct}%
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      gridColumn: "1 / -1",
+                      padding: 14,
+                      borderRadius: radius.md,
+                      border: `1px solid rgba(0,119,139,0.22)`,
+                      background: `linear-gradient(135deg, ${C.tealLight} 0%, #F6FBFC 60%, ${C.goldLight} 100%)`,
+                    }}
+                  >
+                    <div style={{ fontFamily: font.display, fontWeight: 900, color: C.navy }}>
+                      Final Price to Customer
+                    </div>
+                    <div style={{ fontFamily: font.mono, fontSize: 26, marginTop: 8, color: C.ink }}>
+                      ${priced.finalTotal.toFixed(2)}
+                    </div>
+
+                    <div style={{ marginTop: 8, fontSize: 12, color: C.muted, fontFamily: font.mono }}>
+                      Applied: {priced.applied.state} · Mx {priced.applied.materialMultiplier} · Lx{" "}
+                      {priced.applied.laborMultiplier}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
