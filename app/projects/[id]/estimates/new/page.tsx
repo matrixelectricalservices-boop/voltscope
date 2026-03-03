@@ -11,46 +11,46 @@ type ItemType = "Quick Bids";
 
 // ─── UNCW Seahawks Design System ─────────────────────────────────────────────
 const C = {
-  teal:        "#00778B",
-  tealDark:    "#005F70",
-  tealLight:   "#E0F4F7",
-  tealGlow:    "rgba(0, 119, 139, 0.18)",
-  gold:        "#C8A96E",
-  goldLight:   "#F5ECD8",
-  goldGlow:    "rgba(200, 169, 110, 0.22)",
-  navy:        "#003057",
-  navyMid:     "#04406B",
-  navyLight:   "#E8EFF6",
-  white:       "#FFFFFF",
-  offWhite:    "#F7FAFC",
-  ink:         "#0A1F33",
-  muted:       "rgba(0, 48, 87, 0.52)",
-  divider:     "rgba(0, 119, 139, 0.14)",
-  green:       "#1A7F5A",
-  greenLight:  "rgba(26, 127, 90, 0.12)",
-  red:         "#B91C1C",
-  redLight:    "rgba(185, 28, 28, 0.10)",
+  teal: "#00778B",
+  tealDark: "#005F70",
+  tealLight: "#E0F4F7",
+  tealGlow: "rgba(0, 119, 139, 0.18)",
+  gold: "#C8A96E",
+  goldLight: "#F5ECD8",
+  goldGlow: "rgba(200, 169, 110, 0.22)",
+  navy: "#003057",
+  navyMid: "#04406B",
+  navyLight: "#E8EFF6",
+  white: "#FFFFFF",
+  offWhite: "#F7FAFC",
+  ink: "#0A1F33",
+  muted: "rgba(0, 48, 87, 0.52)",
+  divider: "rgba(0, 119, 139, 0.14)",
+  green: "#1A7F5A",
+  greenLight: "rgba(26, 127, 90, 0.12)",
+  red: "#B91C1C",
+  redLight: "rgba(185, 28, 28, 0.10)",
 } as const;
 
 const shadows = {
-  card:    "0 4px 24px rgba(0, 48, 87, 0.09), 0 1px 4px rgba(0, 48, 87, 0.06)",
-  raised:  "0 8px 32px rgba(0, 48, 87, 0.12), 0 2px 8px rgba(0, 48, 87, 0.07)",
-  teal:    "0 4px 20px rgba(0, 119, 139, 0.22)",
-  gold:    "0 4px 20px rgba(200, 169, 110, 0.28)",
-  inset:   "inset 0 1px 3px rgba(0, 48, 87, 0.08)",
+  card: "0 4px 24px rgba(0, 48, 87, 0.09), 0 1px 4px rgba(0, 48, 87, 0.06)",
+  raised: "0 8px 32px rgba(0, 48, 87, 0.12), 0 2px 8px rgba(0, 48, 87, 0.07)",
+  teal: "0 4px 20px rgba(0, 119, 139, 0.22)",
+  gold: "0 4px 20px rgba(200, 169, 110, 0.28)",
+  inset: "inset 0 1px 3px rgba(0, 48, 87, 0.08)",
 } as const;
 
 const radius = {
-  sm:  10,
-  md:  14,
-  lg:  18,
-  xl:  22,
+  sm: 10,
+  md: 14,
+  lg: 18,
+  xl: 22,
 } as const;
 
 const font = {
   display: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-  body:    "'DM Sans', 'Segoe UI', system-ui, sans-serif",
-  mono:    "'DM Mono', 'Fira Code', monospace",
+  body: "'DM Sans', 'Segoe UI', system-ui, sans-serif",
+  mono: "'DM Mono', 'Fira Code', monospace",
 } as const;
 
 // ─── Shared style factories ───────────────────────────────────────────────────
@@ -175,72 +175,120 @@ const btnIcon: React.CSSProperties = {
 export default function NewEstimatePage() {
   const params = useParams<{ id: string }>();
   const projectId = params?.id;
+
   const project = getProjects().find((p) => p.id === projectId);
 
-  const SQFT_ID = "res-new-construction-sqft";
+  // ✅ multiple sq-ft assemblies
+  const SQFT_IDS = useMemo(
+    () =>
+      new Set<string>([
+        "res-new-construction-sqft",
+        "comm-new-construction-sqft",
+      ]),
+    []
+  );
+
+  const SQFT_DEFAULT_QTY: Record<string, number> = {
+    "res-new-construction-sqft": 1500,
+    "comm-new-construction-sqft": 2500,
+  };
+
   const ITEM_TYPES: ItemType[] = ["Quick Bids"];
+
+  // ✅ display order is controlled here
   const QUICK_BID_IDS = [
     "res-new-construction-sqft",
-    "rec-20a-comm",
+    "comm-new-construction-sqft",
+    "ev-charger-50a-lt50ft",
+    "generator-22kw-ts-loadshed",
+    "service-changeout-200a",
+    "service-changeout-400a",
     "rec-20a-resi",
+    "rec-20a-comm",
   ] as const;
 
   const [quantities, setQuantities] = useState<Record<string, number>>({});
-  const [markupPct, setMarkupPct]   = useState(30);
-  const [laborRate, setLaborRate]   = useState(150);
-  const [sqFtRate, setSqFtRate]     = useState(10);
-  const [itemType, setItemType]     = useState<ItemType>("Quick Bids");
+  const [markupPct, setMarkupPct] = useState(30);
+  const [laborRate, setLaborRate] = useState(150);
+
+  // ✅ per-id $/sqft
+  const [sqFtRates, setSqFtRates] = useState<Record<string, number>>({
+    "res-new-construction-sqft": 10,
+    "comm-new-construction-sqft": 20,
+  });
+
+  const getSqFtRate = (id: string) => sqFtRates[id] ?? 0;
+  const setSqFtRate = (id: string, value: number) =>
+    setSqFtRates((prev) => ({ ...prev, [id]: value }));
+
+  const [itemType, setItemType] = useState<ItemType>("Quick Bids");
 
   const draftKey = `voltscope:draft-estimate:${projectId ?? "unknown"}`;
 
   useEffect(() => {
     if (!projectId) return;
+
     const raw = localStorage.getItem(draftKey);
     if (!raw) return;
+
     try {
       const saved = JSON.parse(raw) as {
         quantities?: Record<string, number>;
         markupPct?: number;
         itemType?: ItemType;
         laborRate?: number;
-        sqFtRate?: number;
+        sqFtRates?: Record<string, number>;
       };
-      if (saved.quantities)                      setQuantities(saved.quantities);
-      if (typeof saved.markupPct === "number")   setMarkupPct(saved.markupPct);
-      if (saved.itemType)                        setItemType(saved.itemType);
-      if (typeof saved.laborRate === "number")   setLaborRate(saved.laborRate);
-      if (typeof saved.sqFtRate === "number")    setSqFtRate(saved.sqFtRate);
-    } catch { /* ignore */ }
+
+      if (saved.quantities) setQuantities(saved.quantities);
+      if (typeof saved.markupPct === "number") setMarkupPct(saved.markupPct);
+      if (saved.itemType) setItemType(saved.itemType);
+      if (typeof saved.laborRate === "number") setLaborRate(saved.laborRate);
+      if (saved.sqFtRates) setSqFtRates(saved.sqFtRates);
+    } catch {
+      // ignore
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
   function saveDraft() {
     if (!projectId) return;
-    localStorage.setItem(draftKey, JSON.stringify({
-      quantities, markupPct, itemType, laborRate, sqFtRate,
-      savedAt: new Date().toISOString(),
-    }));
+
+    localStorage.setItem(
+      draftKey,
+      JSON.stringify({
+        quantities,
+        markupPct,
+        itemType,
+        laborRate,
+        sqFtRates, // ✅
+        savedAt: new Date().toISOString(),
+      })
+    );
   }
 
   const visibleAssemblies = useMemo(() => {
     if (itemType === "Quick Bids") {
-      return QUICK_BID_IDS
-        .map((id) => ASSEMBLIES.find((a) => a.id === id))
-        .filter((a): a is (typeof ASSEMBLIES)[number] => Boolean(a));
+      return QUICK_BID_IDS.map((id) => ASSEMBLIES.find((a) => a.id === id)).filter(
+        (a): a is (typeof ASSEMBLIES)[number] => Boolean(a)
+      );
     }
     return [];
   }, [itemType]);
 
   const onlySqFtSelected = useMemo(() => {
-    const selectedIds = Object.entries(quantities)
+    const positive = Object.entries(quantities)
       .filter(([, qty]) => (qty ?? 0) > 0)
       .map(([id]) => id);
-    return selectedIds.length === 1 && selectedIds[0] === SQFT_ID;
-  }, [quantities]);
+
+    return positive.length > 0 && positive.every((id) => SQFT_IDS.has(id));
+  }, [quantities, SQFT_IDS]);
 
   const materialTotal = ASSEMBLIES.reduce((sum, a) => {
     const qty = quantities[a.id] ?? 0;
-    return a.id === SQFT_ID ? sum + qty * sqFtRate : sum + qty * a.materialCost;
+
+    if (SQFT_IDS.has(a.id)) return sum + qty * getSqFtRate(a.id);
+    return sum + qty * a.materialCost;
   }, 0);
 
   const laborHoursTotal = ASSEMBLIES.reduce((sum, a) => {
@@ -249,19 +297,16 @@ export default function NewEstimatePage() {
   }, 0);
 
   const effectiveLaborHours = onlySqFtSelected ? 0 : laborHoursTotal;
-  const laborTotal           = effectiveLaborHours * laborRate;
-  const estimateTotal        = materialTotal + laborTotal;
-  const price                = estimateTotal * (1 + markupPct / 100);
-  const grossProfit          = price - estimateTotal;
+  const laborTotal = effectiveLaborHours * laborRate;
+  const estimateTotal = materialTotal + laborTotal;
+  const price = estimateTotal * (1 + markupPct / 100);
+  const grossProfit = price - estimateTotal;
 
-  // ─── Render ─────────────────────────────────────────────────────────────────
   return (
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
-
         * { box-sizing: border-box; }
-
         body { margin: 0; background: ${C.offWhite}; }
 
         .seahawks-page {
@@ -272,7 +317,6 @@ export default function NewEstimatePage() {
           color: ${C.ink};
         }
 
-        /* Header bar */
         .header-bar {
           display: flex;
           align-items: center;
@@ -326,7 +370,6 @@ export default function NewEstimatePage() {
           font-weight: 500;
         }
 
-        /* Top controls grid */
         .top-grid {
           display: grid;
           grid-template-columns: 1fr 1fr;
@@ -334,7 +377,6 @@ export default function NewEstimatePage() {
           margin-top: 14px;
         }
 
-        /* Main two-column layout */
         .main-grid {
           display: grid;
           grid-template-columns: 1fr 1fr;
@@ -343,7 +385,6 @@ export default function NewEstimatePage() {
           align-items: start;
         }
 
-        /* Panel headings */
         .panel-title {
           font-family: ${font.display};
           font-weight: 800;
@@ -362,16 +403,12 @@ export default function NewEstimatePage() {
           padding: 2px 10px;
         }
 
-        /* Item card hover */
-        .item-card {
-          transition: box-shadow 0.15s, border-color 0.15s;
-        }
+        .item-card { transition: box-shadow 0.15s, border-color 0.15s; }
         .item-card:hover {
           box-shadow: 0 4px 16px rgba(0,119,139,0.12);
           border-color: rgba(0,119,139,0.28);
         }
 
-        /* Teal stat row */
         .stat-row {
           display: flex;
           justify-content: space-between;
@@ -382,20 +419,9 @@ export default function NewEstimatePage() {
         }
         .stat-row:last-child { border-bottom: none; }
 
-        .stat-label {
-          font-size: 13px;
-          font-weight: 600;
-          color: ${C.muted};
-        }
+        .stat-label { font-size: 13px; font-weight: 600; color: ${C.muted}; }
+        .stat-value { font-family: ${font.mono}; font-size: 14px; font-weight: 600; color: ${C.navy}; }
 
-        .stat-value {
-          font-family: ${font.mono};
-          font-size: 14px;
-          font-weight: 600;
-          color: ${C.navy};
-        }
-
-        /* Badge */
         .badge {
           display: inline-block;
           padding: 2px 9px;
@@ -419,7 +445,6 @@ export default function NewEstimatePage() {
           border: 1px solid rgba(200,169,110,0.30);
         }
 
-        /* Empty state */
         .empty-state {
           padding: 24px 18px;
           border-radius: ${radius.md}px;
@@ -432,19 +457,15 @@ export default function NewEstimatePage() {
           margin-top: 12px;
         }
 
-        /* Responsive */
         @media (max-width: 720px) {
           .top-grid, .main-grid { grid-template-columns: 1fr; }
         }
 
-        /* Number input arrows: hide in chrome */
         input[type=number]::-webkit-inner-spin-button,
         input[type=number]::-webkit-outer-spin-button { opacity: 0.4; }
       `}</style>
 
       <div className="seahawks-page" style={{ maxWidth: 1160, margin: "0 auto" }}>
-
-        {/* ── Header Bar ────────────────────────────────────────────────── */}
         <div className="header-bar">
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <div className="header-accent" />
@@ -454,7 +475,8 @@ export default function NewEstimatePage() {
             <div>
               <div className="header-title">New Estimate</div>
               <div className="header-sub">
-                {project?.customerName ?? "Unnamed Project"} &nbsp;·&nbsp; {project?.jobType ?? "Unknown"}
+                {project?.customerName ?? "Unnamed Project"} &nbsp;·&nbsp;{" "}
+                {project?.jobType ?? "Unknown"}
               </div>
             </div>
           </div>
@@ -464,15 +486,28 @@ export default function NewEstimatePage() {
           </button>
         </div>
 
-        {/* ── Top Controls ──────────────────────────────────────────────── */}
         <div className="top-grid">
-          {/* Project card */}
           <div style={panelStyle}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 12,
+              }}
+            >
               <h2 className="panel-title">Project</h2>
               <span className="badge badge-teal">Active</span>
             </div>
-            <div style={{ fontFamily: font.display, fontWeight: 800, fontSize: 18, color: C.navy, letterSpacing: 0.2 }}>
+            <div
+              style={{
+                fontFamily: font.display,
+                fontWeight: 800,
+                fontSize: 18,
+                color: C.navy,
+                letterSpacing: 0.2,
+              }}
+            >
               {project?.customerName ?? "Unnamed Project"}
             </div>
             <div style={{ marginTop: 6, fontSize: 13, color: C.muted }}>
@@ -483,9 +518,15 @@ export default function NewEstimatePage() {
             </div>
           </div>
 
-          {/* Item type card */}
           <div style={panelStyle}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 12,
+              }}
+            >
               <h2 className="panel-title">Item Types</h2>
               <span className="badge badge-gold">Template</span>
             </div>
@@ -497,46 +538,58 @@ export default function NewEstimatePage() {
                 style={selectStyle}
               >
                 {ITEM_TYPES.map((t) => (
-                  <option key={t} value={t}>{t}</option>
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
                 ))}
               </select>
             </div>
           </div>
         </div>
 
-        {/* ── Main Two-Column Layout ────────────────────────────────────── */}
         <div className="main-grid">
-
-          {/* LEFT: Assembly Library */}
+          {/* LEFT */}
           <div style={panelStyle}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 14,
+              }}
+            >
               <h2 className="panel-title">Assemblies</h2>
               <span className="panel-count">{visibleAssemblies.length} items</span>
             </div>
 
             <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 10 }}>
               {visibleAssemblies.map((a) => {
-                const isSqFt = a.id === SQFT_ID;
-                const materialDisplay = isSqFt ? sqFtRate : a.materialCost;
+                const isSqFt = SQFT_IDS.has(a.id);
+                const materialDisplay = isSqFt ? getSqFtRate(a.id) : a.materialCost;
+                const defaultQty = SQFT_DEFAULT_QTY[a.id] ?? 0;
 
                 return (
                   <li key={a.id} className="item-card" style={itemCardStyle}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
                       <div style={{ flex: "1 1 auto", minWidth: 0 }}>
-                        <div style={{
-                          fontFamily: font.display,
-                          fontWeight: 800,
-                          fontSize: 15,
-                          color: C.navy,
-                          letterSpacing: 0.2,
-                          lineHeight: 1.2,
-                        }}>
+                        <div
+                          style={{
+                            fontFamily: font.display,
+                            fontWeight: 800,
+                            fontSize: 15,
+                            color: C.navy,
+                            letterSpacing: 0.2,
+                            lineHeight: 1.2,
+                          }}
+                        >
                           {a.name}
                         </div>
 
                         {!isSqFt && (
                           <div style={{ fontSize: 13, color: C.muted, marginTop: 5, lineHeight: 1.5 }}>
-                            <span className="badge badge-teal" style={{ marginRight: 6 }}>{a.unit}</span>
+                            <span className="badge badge-teal" style={{ marginRight: 6 }}>
+                              {a.unit}
+                            </span>
                             Material: <strong style={{ color: C.teal }}>${materialDisplay.toFixed(2)}</strong>
                             &nbsp;·&nbsp; Labor: <strong style={{ color: C.teal }}>{a.laborHours} hrs</strong>
                           </div>
@@ -544,7 +597,7 @@ export default function NewEstimatePage() {
 
                         {isSqFt && (
                           <div style={{ fontSize: 13, color: C.muted, marginTop: 5 }}>
-                            Quick bid by square footage — defaults to 1,500 sq ft
+                            Quick bid by square footage — defaults to {defaultQty.toLocaleString()} sq ft
                           </div>
                         )}
                       </div>
@@ -552,7 +605,9 @@ export default function NewEstimatePage() {
                       {!isSqFt && (
                         <button
                           type="button"
-                          onClick={() => setQuantities({ ...quantities, [a.id]: (quantities[a.id] ?? 0) + 1 })}
+                          onClick={() =>
+                            setQuantities({ ...quantities, [a.id]: (quantities[a.id] ?? 0) + 1 })
+                          }
                           style={btnNeutral}
                         >
                           + Add
@@ -560,9 +615,16 @@ export default function NewEstimatePage() {
                       )}
                     </div>
 
-                    {/* SqFt controls */}
                     {isSqFt && (
-                      <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 10, alignItems: "end" }}>
+                      <div
+                        style={{
+                          marginTop: 12,
+                          display: "grid",
+                          gridTemplateColumns: "1fr 1fr auto",
+                          gap: 10,
+                          alignItems: "end",
+                        }}
+                      >
                         <div style={{ display: "grid", gap: 5 }}>
                           <label style={labelStyle}>Sq Ft</label>
                           <input
@@ -570,10 +632,18 @@ export default function NewEstimatePage() {
                             inputMode="numeric"
                             min={0}
                             step={1}
-                            value={quantities[a.id] ?? 1500}
-                            onChange={(e) => setQuantities({ ...quantities, [a.id]: e.target.value === "" ? 0 : Number(e.target.value) })}
-                            onFocus={() => { if (!Object.prototype.hasOwnProperty.call(quantities, a.id)) setQuantities({ ...quantities, [a.id]: 1500 }); }}
-                            onBlur={(e) => { if (Number.isNaN(Number(e.target.value))) setQuantities({ ...quantities, [a.id]: 0 }); }}
+                            value={quantities[a.id] ?? defaultQty}
+                            onChange={(e) =>
+                              setQuantities({
+                                ...quantities,
+                                [a.id]: e.target.value === "" ? 0 : Number(e.target.value),
+                              })
+                            }
+                            onFocus={() => {
+                              if (!Object.prototype.hasOwnProperty.call(quantities, a.id)) {
+                                setQuantities({ ...quantities, [a.id]: defaultQty });
+                              }
+                            }}
                             style={inputStyle}
                           />
                         </div>
@@ -585,15 +655,19 @@ export default function NewEstimatePage() {
                             inputMode="decimal"
                             min={0}
                             step={0.25}
-                            value={sqFtRate}
-                            onChange={(e) => setSqFtRate(Number(e.target.value))}
+                            value={getSqFtRate(a.id)}
+                            onChange={(e) => setSqFtRate(a.id, Number(e.target.value))}
                             style={inputStyle}
                           />
                         </div>
 
                         <button
                           type="button"
-                          onClick={() => { if (!Object.prototype.hasOwnProperty.call(quantities, a.id)) setQuantities({ ...quantities, [a.id]: 1500 }); }}
+                          onClick={() => {
+                            if (!Object.prototype.hasOwnProperty.call(quantities, a.id)) {
+                              setQuantities({ ...quantities, [a.id]: defaultQty });
+                            }
+                          }}
                           style={btnNeutral}
                         >
                           Add
@@ -606,16 +680,12 @@ export default function NewEstimatePage() {
             </ul>
           </div>
 
-          {/* RIGHT: Selected Items + Totals */}
+          {/* RIGHT */}
           <div style={{ display: "grid", gap: 14 }}>
-
-            {/* Selected items panel */}
             <div style={panelStyle}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
                 <h2 className="panel-title">Selected Items</h2>
-                <span className="panel-count">
-                  {Object.keys(quantities).length} tracked
-                </span>
+                <span className="panel-count">{Object.keys(quantities).length} tracked</span>
               </div>
 
               {(() => {
@@ -624,21 +694,18 @@ export default function NewEstimatePage() {
                   qty: quantities[a.id] ?? 0,
                 })).filter(({ a, qty }) => {
                   const hasKey = Object.prototype.hasOwnProperty.call(quantities, a.id);
-                  return a.id === SQFT_ID ? hasKey : qty > 0;
+                  const isSqFt = SQFT_IDS.has(a.id);
+                  return isSqFt ? hasKey : qty > 0;
                 });
 
                 if (selected.length === 0) {
-                  return (
-                    <div className="empty-state">
-                      No items selected yet. Add an assembly from the left panel.
-                    </div>
-                  );
+                  return <div className="empty-state">No items selected yet. Add an assembly from the left panel.</div>;
                 }
 
                 return (
                   <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 10 }}>
                     {selected.map(({ a, qty }) => {
-                      const isSqFt = a.id === SQFT_ID;
+                      const isSqFt = SQFT_IDS.has(a.id);
 
                       return (
                         <li key={a.id} className="item-card" style={itemCardStyle}>
@@ -647,6 +714,7 @@ export default function NewEstimatePage() {
                               <div style={{ fontFamily: font.display, fontWeight: 800, fontSize: 15, color: C.navy, letterSpacing: 0.2 }}>
                                 {a.name}
                               </div>
+
                               <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 10, alignItems: "end" }}>
                                 <div style={{ display: "grid", gap: 5 }}>
                                   <label style={labelStyle}>Sq Ft</label>
@@ -656,10 +724,16 @@ export default function NewEstimatePage() {
                                     min={0}
                                     step={1}
                                     value={qty}
-                                    onChange={(e) => setQuantities({ ...quantities, [a.id]: e.target.value === "" ? 0 : Number(e.target.value) })}
+                                    onChange={(e) =>
+                                      setQuantities({
+                                        ...quantities,
+                                        [a.id]: e.target.value === "" ? 0 : Number(e.target.value),
+                                      })
+                                    }
                                     style={inputStyle}
                                   />
                                 </div>
+
                                 <div style={{ display: "grid", gap: 5 }}>
                                   <label style={labelStyle}>$ / Sq Ft</label>
                                   <input
@@ -667,14 +741,19 @@ export default function NewEstimatePage() {
                                     inputMode="decimal"
                                     min={0}
                                     step={0.25}
-                                    value={sqFtRate}
-                                    onChange={(e) => setSqFtRate(Number(e.target.value))}
+                                    value={getSqFtRate(a.id)}
+                                    onChange={(e) => setSqFtRate(a.id, Number(e.target.value))}
                                     style={inputStyle}
                                   />
                                 </div>
+
                                 <button
                                   type="button"
-                                  onClick={() => { const next = { ...quantities }; delete next[a.id]; setQuantities(next); }}
+                                  onClick={() => {
+                                    const next = { ...quantities };
+                                    delete next[a.id];
+                                    setQuantities(next);
+                                  }}
                                   style={btnDanger}
                                 >
                                   Remove
@@ -688,11 +767,15 @@ export default function NewEstimatePage() {
                                   <div style={{ fontFamily: font.display, fontWeight: 800, fontSize: 15, color: C.navy, letterSpacing: 0.2, lineHeight: 1.2 }}>
                                     {a.name}
                                   </div>
+
                                   <div style={{ fontSize: 13, color: C.muted, marginTop: 5 }}>
-                                    <span className="badge badge-teal" style={{ marginRight: 6 }}>{a.unit}</span>
+                                    <span className="badge badge-teal" style={{ marginRight: 6 }}>
+                                      {a.unit}
+                                    </span>
                                     Material: <strong style={{ color: C.teal }}>${a.materialCost.toFixed(2)}</strong>
                                     &nbsp;·&nbsp; Labor: <strong style={{ color: C.teal }}>{a.laborHours} hrs</strong>
                                   </div>
+
                                   <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>
                                     Ext Material: <strong style={{ color: C.navy }}>${(qty * a.materialCost).toFixed(2)}</strong>
                                     &nbsp;·&nbsp; Ext Labor: <strong style={{ color: C.navy }}>{(qty * a.laborHours).toFixed(2)} hrs</strong>
@@ -702,30 +785,42 @@ export default function NewEstimatePage() {
                                 <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
                                   <button
                                     type="button"
-                                    onClick={() => setQuantities({ ...quantities, [a.id]: Math.max(0, (quantities[a.id] ?? 0) - 1) })}
+                                    onClick={() =>
+                                      setQuantities({
+                                        ...quantities,
+                                        [a.id]: Math.max(0, (quantities[a.id] ?? 0) - 1),
+                                      })
+                                    }
                                     style={btnIcon}
                                   >
                                     –
                                   </button>
 
-                                  <div style={{
-                                    minWidth: 38,
-                                    textAlign: "center",
-                                    fontFamily: font.mono,
-                                    fontWeight: 700,
-                                    fontSize: 14,
-                                    color: C.navy,
-                                    padding: "5px 8px",
-                                    borderRadius: 8,
-                                    border: `1.5px solid ${C.divider}`,
-                                    background: C.white,
-                                  }}>
+                                  <div
+                                    style={{
+                                      minWidth: 38,
+                                      textAlign: "center",
+                                      fontFamily: font.mono,
+                                      fontWeight: 700,
+                                      fontSize: 14,
+                                      color: C.navy,
+                                      padding: "5px 8px",
+                                      borderRadius: 8,
+                                      border: `1.5px solid ${C.divider}`,
+                                      background: C.white,
+                                    }}
+                                  >
                                     {qty}
                                   </div>
 
                                   <button
                                     type="button"
-                                    onClick={() => setQuantities({ ...quantities, [a.id]: (quantities[a.id] ?? 0) + 1 })}
+                                    onClick={() =>
+                                      setQuantities({
+                                        ...quantities,
+                                        [a.id]: (quantities[a.id] ?? 0) + 1,
+                                      })
+                                    }
                                     style={btnIcon}
                                   >
                                     +
@@ -733,7 +828,11 @@ export default function NewEstimatePage() {
 
                                   <button
                                     type="button"
-                                    onClick={() => { const next = { ...quantities }; delete next[a.id]; setQuantities(next); }}
+                                    onClick={() => {
+                                      const next = { ...quantities };
+                                      delete next[a.id];
+                                      setQuantities(next);
+                                    }}
                                     style={btnDanger}
                                   >
                                     Remove
@@ -750,15 +849,21 @@ export default function NewEstimatePage() {
               })()}
             </div>
 
-            {/* Totals panel */}
             <div style={panelStyle}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
                 <h2 className="panel-title">Totals</h2>
                 <span style={{ fontSize: 12, color: C.muted, fontWeight: 500 }}>Auto-calculated</span>
               </div>
 
-              {/* Cost breakdown */}
-              <div style={{ background: C.offWhite, borderRadius: radius.md, padding: "10px 14px", border: `1px solid ${C.divider}`, marginBottom: 12 }}>
+              <div
+                style={{
+                  background: C.offWhite,
+                  borderRadius: radius.md,
+                  padding: "10px 14px",
+                  border: `1px solid ${C.divider}`,
+                  marginBottom: 12,
+                }}
+              >
                 {onlySqFtSelected ? (
                   <div className="stat-row">
                     <span className="stat-label">Sq Ft Total</span>
@@ -782,7 +887,6 @@ export default function NewEstimatePage() {
                 )}
               </div>
 
-              {/* Labor rate input (if applicable) */}
               {!onlySqFtSelected && (
                 <div style={{ marginBottom: 12 }}>
                   <label style={labelStyle}>Labor Rate ($ / hr)</label>
@@ -800,7 +904,6 @@ export default function NewEstimatePage() {
                 </div>
               )}
 
-              {/* Markup input */}
               <div style={{ marginBottom: 14 }}>
                 <label style={labelStyle}>Markup %</label>
                 <div style={{ marginTop: 6 }}>
@@ -816,49 +919,62 @@ export default function NewEstimatePage() {
                 </div>
               </div>
 
-              {/* Price to customer - hero card */}
-              <div style={{
-                padding: "16px 18px",
-                borderRadius: radius.md,
-                background: `linear-gradient(135deg, ${C.navy} 0%, ${C.navyMid} 100%)`,
-                boxShadow: shadows.raised,
-              }}>
-                <div style={{
-                  fontFamily: font.display,
-                  fontWeight: 700,
-                  fontSize: 11,
-                  letterSpacing: 1.4,
-                  color: C.gold,
-                  textTransform: "uppercase",
-                  marginBottom: 4,
-                }}>
+              <div
+                style={{
+                  padding: "16px 18px",
+                  borderRadius: radius.md,
+                  background: `linear-gradient(135deg, ${C.navy} 0%, ${C.navyMid} 100%)`,
+                  boxShadow: shadows.raised,
+                }}
+              >
+                <div
+                  style={{
+                    fontFamily: font.display,
+                    fontWeight: 700,
+                    fontSize: 11,
+                    letterSpacing: 1.4,
+                    color: C.gold,
+                    textTransform: "uppercase",
+                    marginBottom: 4,
+                  }}
+                >
                   Price to Customer
                 </div>
-                <div style={{
-                  fontFamily: font.display,
-                  fontWeight: 800,
-                  fontSize: 36,
-                  color: C.white,
-                  letterSpacing: -0.5,
-                  lineHeight: 1,
-                }}>
+
+                <div
+                  style={{
+                    fontFamily: font.display,
+                    fontWeight: 800,
+                    fontSize: 36,
+                    color: C.white,
+                    letterSpacing: -0.5,
+                    lineHeight: 1,
+                  }}
+                >
                   ${price.toFixed(2)}
                 </div>
-                <div style={{
-                  marginTop: 10,
-                  paddingTop: 10,
-                  borderTop: "1px solid rgba(255,255,255,0.12)",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}>
-                  <span style={{ fontSize: 13, color: "rgba(255,255,255,0.60)", fontWeight: 500 }}>Gross Profit</span>
-                  <span style={{
-                    fontFamily: font.mono,
-                    fontWeight: 700,
-                    fontSize: 16,
-                    color: C.gold,
-                  }}>
+
+                <div
+                  style={{
+                    marginTop: 10,
+                    paddingTop: 10,
+                    borderTop: "1px solid rgba(255,255,255,0.12)",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <span style={{ fontSize: 13, color: "rgba(255,255,255,0.60)", fontWeight: 500 }}>
+                    Gross Profit
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: font.mono,
+                      fontWeight: 700,
+                      fontSize: 16,
+                      color: C.gold,
+                    }}
+                  >
                     ${grossProfit.toFixed(2)}
                   </span>
                 </div>
@@ -868,7 +984,6 @@ export default function NewEstimatePage() {
                 Next: add "What's Included" notes per assembly.
               </div>
             </div>
-
           </div>
         </div>
       </div>
