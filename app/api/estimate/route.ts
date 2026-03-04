@@ -33,43 +33,66 @@ export async function POST(req: Request) {
       return Response.json({ error: "Missing description" }, { status: 400 });
     }
 
-    const res = await client.responses.create({
-      model: "gpt-5",
-      instructions:
-        "You are an electrical estimating assistant. Convert the job description into a materials list (with skuKey placeholders and quantities) and a labor-hours estimate. Do NOT include pricing. Use conservative assumptions and list them. Keep skuKey short and consistent (snake_case). Return ONLY valid JSON that matches the schema.",
-      input: description,
-      text: {
-        format: {
-          type: "json_schema",
-          name: "estimate_result",
-          strict: true,
-          schema: {
-            type: "object",
-            additionalProperties: false,
-            required: ["summary", "assumptions", "laborHours", "materials"],
-            properties: {
-              summary: { type: "string" },
-              assumptions: { type: "array", items: { type: "string" } },
-              laborHours: { type: "number" },
-              materials: {
-                type: "array",
-                items: {
-                  type: "object",
-                  additionalProperties: false,
-                  required: ["skuKey", "qty"],
-                  properties: {
-                    skuKey: { type: "string" },
-                    qty: { type: "number" },
-                    unit: { type: "string" },
-                    name: { type: "string" },
-                  },
+    // ── DEBUG LOGS ─────────────────────────────────────────────
+    console.log("[/api/estimate] start");
+    console.log("[/api/estimate] description chars:", description.length);
+    const t0 = Date.now();
+    // ───────────────────────────────────────────────────────────
+
+   const OPENAI_TIMEOUT_MS = 25_000;
+
+const res = await Promise.race([
+  client.responses.create({
+    model: "gpt-5-mini",
+    reasoning: { effort: "minimal" },
+max_output_tokens: 1200,
+    instructions:
+      "You are an electrical estimating assistant. Convert the job description into a materials list and a labor-hours estimate. Do NOT include pricing. Use conservative assumptions and list them. Each material MUST include: skuKey (snake_case string), qty (number), unit (string), and name (string). Return ONLY valid JSON that matches the schema exactly.",
+    input: [
+      {
+        role: "user",
+        content: [{ type: "input_text", text: description }],
+      },
+    ],
+    text: {
+      format: {
+        type: "json_schema",
+        name: "estimate_result",
+        strict: true,
+        schema: {
+          type: "object",
+          additionalProperties: false,
+          required: ["summary", "assumptions", "laborHours", "materials"],
+          properties: {
+            summary: { type: "string" },
+            assumptions: { type: "array", items: { type: "string" } },
+            laborHours: { type: "number" },
+            materials: {
+              type: "array",
+              items: {
+                type: "object",
+                additionalProperties: false,
+                required: ["skuKey", "qty", "unit", "name"],
+                properties: {
+                  skuKey: { type: "string" },
+                  qty: { type: "number" },
+                  unit: { type: "string" },
+                  name: { type: "string" },
                 },
               },
             },
           },
         },
       },
-    });
+    },
+  }),
+
+  new Promise((_, reject) =>
+    setTimeout(() => reject(new Error("OpenAI request timed out")), OPENAI_TIMEOUT_MS)
+  ),
+]) as any;
+
+    console.log("[/api/estimate] openai done ms:", Date.now() - t0);
 
     // Parse JSON output
     const rawText = (res as any).output_text as string | undefined;
@@ -78,11 +101,17 @@ export async function POST(req: Request) {
       (rawText ? (JSON.parse(rawText) as EstimateAIResult) : null);
 
     if (!parsed) {
-      return Response.json({ error: "No structured output returned" }, { status: 502 });
+      return Response.json(
+        { error: "No structured output returned" },
+        { status: 502 }
+      );
     }
 
     // clamps
-    parsed.laborHours = Number.isFinite(parsed.laborHours) ? Math.max(0, parsed.laborHours) : 0;
+    parsed.laborHours = Number.isFinite(parsed.laborHours)
+      ? Math.max(0, parsed.laborHours)
+      : 0;
+
     parsed.materials = Array.isArray(parsed.materials)
       ? parsed.materials.map((m: { qty: unknown } & Record<string, any>) => ({
           ...m,
@@ -90,12 +119,11 @@ export async function POST(req: Request) {
         }))
       : [];
 
+    console.log("[/api/estimate] returning ok");
     return Response.json(parsed);
   } catch (err: any) {
-    // IMPORTANT: always return JSON, not HTML
-    return Response.json(
-      { error: err?.message ?? "Server error" },
-      { status: 500 }
-    );
-  }
+    console.error("[/api/estimate] error:", err);
+const msg = err?.message ?? "Server error";
+const status = msg.includes("timed out") ? 504 : 500;
+return Response.json({ error: msg }, { status });  }
 }

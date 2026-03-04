@@ -227,9 +227,9 @@ export default function NewEstimatePage() {
   const [laborRate, setLaborRate] = useState(150);
   const [priced, setPriced] = useState<ReturnType<typeof priceEstimate> | null>(null);
 
-  const [genState, setGenState] = useState<{ status: "idle" | "ready" | "error"; msg?: string }>({
-    status: "idle",
-  });
+ const [genState, setGenState] = useState<{ status: "idle" | "loading" | "ready" | "error"; msg?: string }>({
+  status: "idle",
+});
 
   // Load draft
   useEffect(() => {
@@ -304,32 +304,35 @@ export default function NewEstimatePage() {
     return;
   }
 
-  // optional: show a "working" state (keep as idle for now)
-  setGenState({ status: "idle" });
+  setGenState({ status: "loading" });
+
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 26000);
 
   try {
     const r = await fetch("/api/estimate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ description: text }),
+      signal: controller.signal,
     });
 
+    // IMPORTANT: always read as text first (prevents hanging on invalid JSON)
     const raw = await r.text();
 
-let data: any = null;
-try {
-  data = JSON.parse(raw);
-} catch {
-  // Not JSON (likely an HTML error page)
-  setGenState({
-    status: "error",
-    msg: `API returned non-JSON (status ${r.status}). First chars: ${raw.slice(0, 40)}`,
-  });
-  return;
-}
+    let data: any;
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      setGenState({
+        status: "error",
+        msg: `API returned non-JSON (status ${r.status}). First chars: ${raw.slice(0, 40)}`,
+      });
+      return;
+    }
 
     if (!r.ok) {
-      setGenState({ status: "error", msg: data?.error ?? "Failed to generate estimate." });
+      setGenState({ status: "error", msg: data?.error ?? `Request failed (status ${r.status})` });
       return;
     }
 
@@ -337,7 +340,6 @@ try {
       generatedAt: new Date().toISOString(),
       summary: data?.summary ?? "AI generated estimate.",
       assumptions: Array.isArray(data?.assumptions) ? data.assumptions : [],
-      // keep a simple preview row for now (we'll improve later)
       lineItems: [
         {
           id: uid(),
@@ -367,7 +369,13 @@ try {
       setUiState({ isSaved: true, lastSavedAt: payload.savedAt });
     }
   } catch (e: any) {
-    setGenState({ status: "error", msg: e?.message ?? "Request failed." });
+    const msg =
+      e?.name === "AbortError"
+        ? "Request timed out (15s). Check /api/estimate server logs."
+        : e?.message ?? "Request failed.";
+    setGenState({ status: "error", msg });
+  } finally {
+    window.clearTimeout(timeoutId);
   }
 }
 
@@ -731,6 +739,8 @@ try {
                   setJobDescription(e.target.value);
                   if (genState.status === "error") setGenState({ status: "idle" });
                 }}
+
+                
                 placeholder="Describe the job scope... (example: Install EV charger in garage, 25ft run through attic, new 60A breaker, permit included)"
                 rows={6}
                 style={inputStyle}
@@ -774,6 +784,22 @@ try {
                     {genState.msg}
                   </span>
                 )}
+
+                {genState.status === "loading" && (
+  <span
+    style={{
+      fontFamily: font.mono,
+      fontSize: 12,
+      color: "rgba(0,48,87,0.75)",
+      background: "rgba(224,244,247,0.9)",
+      border: "1px solid rgba(0,119,139,0.18)",
+      padding: "6px 10px",
+      borderRadius: 999,
+    }}
+  >
+    Generating…
+  </span>
+)}
 
                 {estimate?.generatedAt && genState.status === "ready" && (
                   <span
