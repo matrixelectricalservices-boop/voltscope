@@ -230,7 +230,7 @@ export default function NewEstimatePage() {
  const [genState, setGenState] = useState<{ status: "idle" | "loading" | "ready" | "error"; msg?: string }>({
   status: "idle",
 });
-
+const [progress, setProgress] = useState(0);
   // Load draft
   useEffect(() => {
     if (!projectId) return;
@@ -268,6 +268,7 @@ export default function NewEstimatePage() {
       setPriced(null);
       return;
     }
+    
 
     const next = priceEstimate({
       month: "2026-03",
@@ -280,6 +281,24 @@ export default function NewEstimatePage() {
 
     setPriced(next);
   }, [estimate, laborRate, markupPct]);
+
+  useEffect(() => {
+  if (genState.status !== "loading") {
+    setProgress(0);
+    return;
+  }
+
+  setProgress(8);
+
+  const id = window.setInterval(() => {
+    setProgress((p) => {
+      const next = p + Math.max(1, Math.round((92 - p) * 0.12));
+      return Math.min(92, next);
+    });
+  }, 250);
+
+  return () => window.clearInterval(id);
+}, [genState.status, setProgress]);
 
   function saveDraft() {
     if (!projectId) return;
@@ -305,6 +324,8 @@ export default function NewEstimatePage() {
   }
 
   setGenState({ status: "loading" });
+
+  
 
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), 26000);
@@ -355,7 +376,9 @@ export default function NewEstimatePage() {
     };
 
     setEstimate(generated);
+    setProgress(100);
     setGenState({ status: "ready" });
+    
 
     if (projectId) {
       const payload: Draft = {
@@ -376,6 +399,7 @@ export default function NewEstimatePage() {
     setGenState({ status: "error", msg });
   } finally {
     window.clearTimeout(timeoutId);
+    setProgress(100);
   }
 }
 
@@ -799,6 +823,32 @@ export default function NewEstimatePage() {
   >
     Generating…
   </span>
+
+  
+)}
+
+{genState.status === "loading" && (
+  <div
+    style={{
+      width: "100%",
+      maxWidth: 420,
+      height: 10,
+      borderRadius: 999,
+      overflow: "hidden",
+      border: "1px solid rgba(0,119,139,0.22)",
+      background: "rgba(0,48,87,0.06)",
+    }}
+    aria-label="Generating estimate progress"
+  >
+    <div
+      style={{
+        height: "100%",
+        width: `${progress}%`,
+        background: `linear-gradient(90deg, ${C.teal} 0%, ${C.tealDark} 100%)`,
+        transition: "width 180ms ease",
+      }}
+    />
+  </div>
 )}
 
                 {estimate?.generatedAt && genState.status === "ready" && (

@@ -118,7 +118,10 @@ max_output_tokens: 1200,
           qty: Number.isFinite(m.qty) ? Math.max(0, Number(m.qty)) : 0,
         }))
       : [];
-
+// cap assumptions to 3 max
+parsed.assumptions = Array.isArray(parsed.assumptions)
+  ? parsed.assumptions.slice(0, 3)
+  : [];
     console.log("[/api/estimate] returning ok");
     return Response.json(parsed);
   } catch (err: any) {
