@@ -323,6 +323,8 @@ const [progress, setProgress] = useState(0);
     return;
   }
 
+ 
+
   setGenState({ status: "loading" });
 
   
@@ -402,7 +404,18 @@ const [progress, setProgress] = useState(0);
     setProgress(100);
   }
 }
+ function clearEstimate() {
+  setJobDescription("");
+  setEstimate(null);
+  setPriced(null);
+  setProgress(0);
+  setGenState({ status: "idle" });
 
+  if (projectId) {
+    localStorage.removeItem(draftKey);
+    setUiState({ isSaved: false, lastSavedAt: undefined });
+  }
+}
   // ─── UNCW Seahawks Design System ───────────────────────────────────────────
   const C = {
     teal: "#00778B",
@@ -537,8 +550,11 @@ const [progress, setProgress] = useState(0);
     );
   };
 
-  const canGenerate = useMemo(() => jobDescription.trim().length > 0, [jobDescription]);
-
+const isLocked = genState.status === "loading" || genState.status === "ready";
+const canGenerate = useMemo(
+  () => jobDescription.trim().length > 0 && !isLocked,
+  [jobDescription, isLocked]
+);
   return (
     <>
       <style>{`
@@ -780,18 +796,40 @@ const [progress, setProgress] = useState(0);
                 }}
               >
                 <button
-                  type="button"
-                  onClick={handleGenerate}
-                  style={{
-                    ...btnSecondary,
-                    opacity: canGenerate ? 1 : 0.55,
-                    cursor: canGenerate ? "pointer" : "not-allowed",
-                  }}
-                  disabled={!canGenerate}
-                  title={!canGenerate ? "Enter a job description to generate." : "Generate a starter estimate."}
-                >
-                  ⚡ Generate Estimate
-                </button>
+  type="button"
+  onClick={handleGenerate}
+  style={{
+    ...btnSecondary,
+    opacity: canGenerate ? 1 : 0.55,
+    cursor: canGenerate ? "pointer" : "not-allowed",
+  }}
+  disabled={!canGenerate}
+  title={
+    genState.status === "loading"
+      ? "Generating…"
+      : genState.status === "ready"
+      ? "Estimate already generated. Clear to start a new one."
+      : !jobDescription.trim()
+      ? "Enter a job description to generate."
+      : "Generate estimate"
+  }
+>
+  ⚡ Generate Estimate
+</button>
+<button
+  type="button"
+  onClick={clearEstimate}
+  style={{
+    ...btnSecondary,
+    opacity: genState.status === "ready" ? 1 : 0.55,
+    cursor: genState.status === "ready" ? "pointer" : "not-allowed",
+  }}
+  disabled={genState.status !== "ready"}
+  title={genState.status !== "ready" ? "Generate an estimate first." : "Clear and start a new estimate."}
+>
+  🧹 Start New Estimate
+</button>
+
 
                 {genState.status === "error" && (
                   <span
