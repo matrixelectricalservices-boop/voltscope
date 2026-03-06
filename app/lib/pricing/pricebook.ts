@@ -1,0 +1,30 @@
+export const PRICEBOOK = {
+  version: "2026-03-starter",
+  items: [
+    { skuKey: "recept_tr_15a", name: "Duplex receptacle, tamper-resistant, 15A", unit: "ea", baseUnitCost: 2.75 },
+    { skuKey: "recept_tr_20a", name: "Duplex receptacle, tamper-resistant, 20A", unit: "ea", baseUnitCost: 3.25 },
+    { skuKey: "recept_wr_tr_15a", name: "Duplex receptacle, WR/TR, 15A", unit: "ea", baseUnitCost: 4.5 },
+    { skuKey: "recept_wr_tr_20a", name: "Duplex receptacle, WR/TR, 20A", unit: "ea", baseUnitCost: 5.25 },
+    { skuKey: "recept_gfci_15a", name: "GFCI receptacle, 15A", unit: "ea", baseUnitCost: 14.5 },
+    { skuKey: "recept_gfci_20a", name: "GFCI receptacle, 20A", unit: "ea", baseUnitCost: 16.5 },
+    { skuKey: "recept_gfci_wr_20a", name: "GFCI receptacle, WR, 20A", unit: "ea", baseUnitCost: 18.5 },
+    { skuKey: "recept_afci_15a", name: "AFCI receptacle, 15A", unit: "ea", baseUnitCost: 34.0 },
+    { skuKey: "recept_usb_combo", name: "Duplex receptacle w/ USB (A/C)", unit: "ea", baseUnitCost: 19.0 },
+    { skuKey: "recept_14_50", name: "NEMA 14-50 receptacle", unit: "ea", baseUnitCost: 24.0 },
+    { skuKey: "recept_6_50", name: "NEMA 6-50 receptacle", unit: "ea", baseUnitCost: 22.0 },
+    { skuKey: "recept_twistlock_L6_30R", name: "Twist-lock receptacle, L6-30R", unit: "ea", baseUnitCost: 38.0 },
+    { skuKey: "recept_twistlock_L14_30R", name: "Twist-lock receptacle, L14-30R", unit: "ea", baseUnitCost: 45.0 },
+    { skuKey: "switch_sp", name: "Switch, single-pole, 15A/20A", unit: "ea", baseUnitCost: 2.25 },
+    { skuKey: "switch_3w", name: "Switch, 3-way, 15A/20A", unit: "ea", baseUnitCost: 3.25 },
+    { skuKey: "switch_4w", name: "Switch, 4-way, 15A/20A", unit: "ea", baseUnitCost: 4.5 },
+    { skuKey: "switch_dp", name: "Switch, double-pole, 20A", unit: "ea", baseUnitCost: 6.5 },
+    { skuKey: "switch_timer_bath", name: "Wall timer switch (bath fan)", unit: "ea", baseUnitCost: 22.0 },
+    { skuKey: "dimmer_led", name: "LED dimmer, single-pole/3-way", unit: "ea", baseUnitCost: 28.0 },
+    { skuKey: "dimmer_smart", name: "Smart dimmer (Wi-Fi/Zigbee class)", unit: "ea", baseUnitCost: 55.0 },
+    { skuKey: "switch_smart", name: "Smart switch (Wi-Fi/Zigbee class)", unit: "ea", baseUnitCost: 50.0 },
+    { skuKey: "occ_sensor_wall", name: "Wall occupancy sensor switch", unit: "ea", baseUnitCost: 32.0 },
+    { skuKey: "photo_cell_button", name: "Photocell, button type, 120V", unit: "ea", baseUnitCost: 15.0 },
+    { skuKey: "photo_cell_stem", name: "Photocell, stem/swivel, 120-277V", unit: "ea", baseUnitCost: 28.0 },
+    { skuKey: "surge_wholehome", name: "Whole-home surge protector, panel mount", unit: "ea", baseUnitCost: 120.0 }
+  ]
+} as const;
