@@ -6,13 +6,20 @@ export const runtime = "nodejs";
 type EstimateAIResult = {
   summary: string;
   assumptions: string[];
-  laborHours: number;
   materials: Array<{
     skuKey: string;
     qty: number;
     unit?: string;
     name?: string;
   }>;
+  laborFactors: {
+    jobType: string;
+    deviceCount: number;
+    runLengthFt: number;
+    access: "open" | "attic" | "crawlspace" | "finished";
+    panelWork: boolean;
+    difficulty: "easy" | "standard" | "hard";
+  };
 };
 
 type PricebookItem = {
@@ -71,6 +78,60 @@ function normalizeMaterials(
   return Array.from(merged.values());
 }
 
+function calculateLaborHours(
+  factors: EstimateAIResult["laborFactors"]
+): number {
+  const baseByJobType: Record<string, number> = {
+    ev_charger: 2.5,
+    receptacle_install: 1.0,
+    lighting_upgrade: 1.5,
+    switch_install: 0.75,
+    panel_work: 2.0,
+    troubleshooting: 2.0,
+  };
+
+  const safeFactors = {
+    jobType: factors?.jobType ?? "",
+    deviceCount: Number(factors?.deviceCount ?? 1),
+    runLengthFt: Number(factors?.runLengthFt ?? 0),
+    access: factors?.access ?? "open",
+    panelWork: Boolean(factors?.panelWork),
+    difficulty: factors?.difficulty ?? "standard",
+  };
+
+  const base = baseByJobType[safeFactors.jobType] ?? 1.5;
+
+  const deviceAdder =
+    Math.max(0, safeFactors.deviceCount - 1) * 0.35;
+
+  const runAdder =
+    Math.max(0, safeFactors.runLengthFt) * 0.02;
+
+  const accessAdder =
+    safeFactors.access === "attic"
+      ? 0.75
+      : safeFactors.access === "crawlspace"
+      ? 0.75
+      : safeFactors.access === "finished"
+      ? 1.0
+      : 0;
+
+  const panelAdder = safeFactors.panelWork ? 0.75 : 0;
+
+  const difficultyMultiplier =
+    safeFactors.difficulty === "easy"
+      ? 0.9
+      : safeFactors.difficulty === "hard"
+      ? 1.25
+      : 1;
+
+  const total =
+    (base + deviceAdder + runAdder + accessAdder + panelAdder) *
+    difficultyMultiplier;
+
+  return Math.max(0.5, Math.round(total * 100) / 100);
+}
+
 export async function POST(req: Request) {
   try {
     const apiKey = process.env.OPENAI_API_KEY;
@@ -111,8 +172,18 @@ You are an electrical estimating assistant.
 Convert the user's job description into:
 - summary
 - assumptions
-- laborHours
 - materials
+- laborFactors
+
+Do NOT estimate final labor hours.
+
+Instead extract the labor-driving variables:
+- jobType (example: ev_charger, receptacle_install, lighting_upgrade)
+- deviceCount (number of devices being installed or worked on)
+- runLengthFt (approximate wire run length)
+- access (open | attic | crawlspace | finished)
+- panelWork (true if breaker/panel work required)
+- difficulty (easy | standard | hard)
 
 Rules:
 - Do NOT include pricing.
@@ -140,14 +211,13 @@ ${catalogForPrompt}
             schema: {
               type: "object",
               additionalProperties: false,
-              required: ["summary", "assumptions", "laborHours", "materials"],
+              required: ["summary", "assumptions", "materials", "laborFactors"],
               properties: {
                 summary: { type: "string" },
                 assumptions: {
                   type: "array",
                   items: { type: "string" },
                 },
-                laborHours: { type: "number" },
                 materials: {
                   type: "array",
                   items: {
@@ -159,6 +229,32 @@ ${catalogForPrompt}
                       qty: { type: "number" },
                       unit: { type: "string" },
                       name: { type: "string" },
+                    },
+                  },
+                },
+                laborFactors: {
+                  type: "object",
+                  additionalProperties: false,
+                  required: [
+                    "jobType",
+                    "deviceCount",
+                    "runLengthFt",
+                    "access",
+                    "panelWork",
+                    "difficulty",
+                  ],
+                  properties: {
+                    jobType: { type: "string" },
+                    deviceCount: { type: "number" },
+                    runLengthFt: { type: "number" },
+                    access: {
+                      type: "string",
+                      enum: ["open", "attic", "crawlspace", "finished"],
+                    },
+                    panelWork: { type: "boolean" },
+                    difficulty: {
+                      type: "string",
+                      enum: ["easy", "standard", "hard"],
                     },
                   },
                 },
@@ -186,10 +282,6 @@ ${catalogForPrompt}
       );
     }
 
-    const laborHours = Number.isFinite(parsed.laborHours)
-      ? Math.max(0, Number(parsed.laborHours))
-      : 0;
-
     const assumptions = Array.isArray(parsed.assumptions)
       ? parsed.assumptions
           .filter((x: unknown): x is string => typeof x === "string" && x.trim().length > 0)
@@ -198,7 +290,32 @@ ${catalogForPrompt}
 
     const materials = normalizeMaterials(parsed.materials);
 
+    const laborFactors: EstimateAIResult["laborFactors"] = {
+      jobType: typeof parsed.laborFactors?.jobType === "string" ? parsed.laborFactors.jobType : "general",
+      deviceCount: Number.isFinite(parsed.laborFactors?.deviceCount)
+        ? Math.max(1, Number(parsed.laborFactors.deviceCount))
+        : 1,
+      runLengthFt: Number.isFinite(parsed.laborFactors?.runLengthFt)
+        ? Math.max(0, Number(parsed.laborFactors.runLengthFt))
+        : 0,
+      access:
+        parsed.laborFactors?.access === "attic" ||
+        parsed.laborFactors?.access === "crawlspace" ||
+        parsed.laborFactors?.access === "finished"
+          ? parsed.laborFactors.access
+          : "open",
+      panelWork: Boolean(parsed.laborFactors?.panelWork),
+      difficulty:
+        parsed.laborFactors?.difficulty === "easy" ||
+        parsed.laborFactors?.difficulty === "hard"
+          ? parsed.laborFactors.difficulty
+          : "standard",
+    };
+
+    const laborHours = calculateLaborHours(laborFactors);
+
     console.log("[/api/estimate] material count after normalize:", materials.length);
+    console.log("[/api/estimate] calculated labor hours:", laborHours);
 
     return Response.json({
       summary:
@@ -206,8 +323,9 @@ ${catalogForPrompt}
           ? parsed.summary.trim()
           : "Electrical scope generated from job description.",
       assumptions,
-      laborHours,
       materials,
+      laborFactors,
+      laborHours,
     });
   } catch (err: any) {
     console.error("[/api/estimate] error:", err);
