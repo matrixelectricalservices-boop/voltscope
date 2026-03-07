@@ -14,6 +14,7 @@ type Draft = {
   estimate?: GeneratedEstimate;
   laborRate?: number;
   markupPct?: number;
+  permitFee?: number;
 };
 
 type UIState = {
@@ -34,9 +35,16 @@ type GeneratedEstimate = {
   generatedAt: string;
   summary: string;
   assumptions: string[];
+  materialsFound?: Array<{
+    item: string;
+    qty: number;
+    unit: string;
+    notes?: string;
+  }>;
   lineItems: EstimateLineItem[];
   materials: MaterialLine[];
   laborHours: number;
+  permitFee?: number;
 };
 
 function uid() {
@@ -106,131 +114,14 @@ function generateEstimateFromText(raw: string): GeneratedEstimate {
       confidence: runFt != null ? "medium" : "low",
     });
 
-    const ampsMatch = lower.match(/(\d{2,3})\s*a\b/);
-    const amps = ampsMatch ? parseInt(ampsMatch[1], 10) : 50;
-
-    add({
-      name: "2-pole breaker",
-      qty: 1,
-      unit: "ea",
-      notes: `${amps}A assumed/detected.`,
-      confidence: ampsMatch ? "medium" : "low",
-    });
+    assumptions.push("EV charger branch circuit assumed.");
 
     addMaterial({
-      skuKey: amps >= 60 ? "breaker_2p_60a" : "breaker_2p_50a",
+      skuKey: "misc_consumables",
       qty: 1,
-      unit: "ea",
-      name: `${amps >= 60 ? "60A" : "50A"} 2-Pole Breaker`,
+      unit: "lot",
+      name: "Misc fittings/consumables",
     });
-
-    const has1450 = /14-?50|nema\s*14\s*-?\s*50|50\s*a\s*receptacle/.test(lower);
-    const hardwired = /hardwire|hard-wired|wall\s*connector/.test(lower);
-
-    if (has1450 && !hardwired) {
-      add({
-        name: "14-50 receptacle",
-        qty: 1,
-        unit: "ea",
-        confidence: "medium",
-      });
-
-      addMaterial({
-        skuKey: "receptacle_nema_14_50",
-        qty: 1,
-        unit: "ea",
-        name: "NEMA 14-50 Receptacle",
-      });
-
-      addMaterial({
-        skuKey: "box_4_square",
-        qty: 1,
-        unit: "ea",
-        name: "4\" Square Box",
-      });
-
-      addMaterial({
-        skuKey: "cover_raised_14_50",
-        qty: 1,
-        unit: "ea",
-        name: "Raised Receptacle Cover",
-      });
-    } else if (hardwired) {
-      add({
-        name: "Hardwire termination",
-        qty: 1,
-        unit: "ea",
-        confidence: "medium",
-      });
-
-      addMaterial({
-        skuKey: "hardwire_kit",
-        qty: 1,
-        unit: "ea",
-        name: "Hardwire Kit",
-      });
-    } else {
-      add({
-        name: "EV termination hardware",
-        qty: 1,
-        unit: "ea",
-        notes: "Exact termination type not specified.",
-        confidence: "low",
-      });
-
-      assumptions.push("Termination type not specified; used placeholder hardware allowance.");
-
-      addMaterial({
-        skuKey: "ev_termination_misc",
-        qty: 1,
-        unit: "lot",
-        name: "EV Termination Hardware",
-      });
-    }
-
-    if (runFt != null) {
-      add({
-        name: "Cable / conduit run",
-        qty: runFt,
-        unit: "ft",
-        confidence: "medium",
-      });
-
-      addMaterial({
-        skuKey: "wire_copper_6awg",
-        qty: runFt,
-        unit: "ft",
-        name: "#6 Copper Wire",
-      });
-
-      addMaterial({
-        skuKey: "conduit_emt_1in",
-        qty: Math.max(10, Math.ceil(runFt * 0.6)),
-        unit: "ft",
-        name: "1\" EMT Conduit",
-      });
-
-      addMaterial({
-        skuKey: "fittings_emt_misc",
-        qty: 1,
-        unit: "lot",
-        name: "EMT Fittings",
-      });
-    } else {
-      addMaterial({
-        skuKey: "wire_branch_circuit_misc",
-        qty: 1,
-        unit: "lot",
-        name: "Branch Circuit Wire",
-      });
-
-      addMaterial({
-        skuKey: "fittings_emt_misc",
-        qty: 1,
-        unit: "lot",
-        name: "Raceway / Fittings",
-      });
-    }
 
     if (/attic/.test(lower)) assumptions.push("Attic access assumed available.");
     if (/crawl/.test(lower)) assumptions.push("Crawlspace access assumed available.");
@@ -242,12 +133,6 @@ function generateEstimateFromText(raw: string): GeneratedEstimate {
     const qty = clampQty(parseInt(lightMatch[1], 10));
     add({ name: "Install light fixture(s)", qty, unit: "ea", confidence: "medium" });
     laborHours += qty;
-    addMaterial({
-      skuKey: "light_fixture_allowance",
-      qty,
-      unit: "ea",
-      name: "Light Fixture Allowance",
-    });
   } else if (/\blight(s)?\b|\bfixture(s)?\b/.test(lower)) {
     add({
       name: "Install light fixture(s)",
@@ -258,12 +143,6 @@ function generateEstimateFromText(raw: string): GeneratedEstimate {
     });
     assumptions.push("Lighting quantity not specified; assumed 1.");
     laborHours += 1;
-    addMaterial({
-      skuKey: "light_fixture_allowance",
-      qty: 1,
-      unit: "ea",
-      name: "Light Fixture Allowance",
-    });
   }
 
   const recepMatch = lower.match(/(\d{1,3})\s*(receptacle|receptacles|outlet|outlets)\b/);
@@ -271,20 +150,6 @@ function generateEstimateFromText(raw: string): GeneratedEstimate {
     const qty = clampQty(parseInt(recepMatch[1], 10));
     add({ name: "Install receptacle(s)", qty, unit: "ea", confidence: "medium" });
     laborHours += Math.max(1, qty * 0.5);
-
-    addMaterial({
-      skuKey: "receptacle_duplex_20a",
-      qty,
-      unit: "ea",
-      name: "20A Duplex Receptacle",
-    });
-
-    addMaterial({
-      skuKey: "cover_decora_or_duplex",
-      qty,
-      unit: "ea",
-      name: "Device Cover Plate",
-    });
   }
 
   if (/panel\s*upgrade|service\s*upgrade/.test(lower)) {
@@ -297,13 +162,6 @@ function generateEstimateFromText(raw: string): GeneratedEstimate {
     });
     assumptions.push("Panel/service upgrade details TBD.");
     laborHours += 8;
-
-    addMaterial({
-      skuKey: "panel_upgrade_allowance",
-      qty: 1,
-      unit: "ea",
-      name: "Panel Upgrade Allowance",
-    });
   }
 
   if (lineItems.length === 0 && text.length > 0) {
@@ -317,13 +175,6 @@ function generateEstimateFromText(raw: string): GeneratedEstimate {
 
     assumptions.push("Description too vague for detailed automatic takeoff.");
     laborHours = 2;
-
-    addMaterial({
-      skuKey: "misc_consumables",
-      qty: 1,
-      unit: "lot",
-      name: "Misc Fittings / Consumables",
-    });
   }
 
   if (materials.length === 0) {
@@ -331,7 +182,7 @@ function generateEstimateFromText(raw: string): GeneratedEstimate {
       skuKey: "misc_consumables",
       qty: 1,
       unit: "lot",
-      name: "Misc Fittings / Consumables",
+      name: "Misc fittings/consumables",
     });
   }
 
@@ -344,9 +195,11 @@ function generateEstimateFromText(raw: string): GeneratedEstimate {
     generatedAt: new Date().toISOString(),
     summary,
     assumptions,
+    materialsFound: [],
     lineItems,
     materials,
     laborHours,
+    permitFee: 100,
   };
 }
 
@@ -363,6 +216,7 @@ export default function NewEstimatePage() {
 
   const [markupPct, setMarkupPct] = useState(20);
   const [laborRate, setLaborRate] = useState(150);
+  const [permitFee, setPermitFee] = useState(100);
   const [priced, setPriced] = useState<ReturnType<typeof priceEstimate> | null>(null);
   const [showAllMaterials, setShowAllMaterials] = useState(false);
 
@@ -385,13 +239,16 @@ export default function NewEstimatePage() {
       if (typeof saved.jobDescription === "string") setJobDescription(saved.jobDescription);
       if (typeof saved.laborRate === "number" && Number.isFinite(saved.laborRate)) setLaborRate(saved.laborRate);
       if (typeof saved.markupPct === "number" && Number.isFinite(saved.markupPct)) setMarkupPct(saved.markupPct);
+      if (typeof saved.permitFee === "number" && Number.isFinite(saved.permitFee)) setPermitFee(saved.permitFee);
 
       if (saved.estimate && typeof saved.estimate === "object") {
         setEstimate(saved.estimate as GeneratedEstimate);
         setGenState({ status: "ready" });
       }
 
-      if (saved.savedAt) setUiState({ isSaved: true, lastSavedAt: saved.savedAt });
+      if (saved.savedAt) {
+        setUiState({ isSaved: true, lastSavedAt: saved.savedAt });
+      }
     } catch {
       // ignore bad draft
     }
@@ -412,8 +269,12 @@ export default function NewEstimatePage() {
       materials: estimate.materials,
     });
 
-    setPriced(next);
-  }, [estimate, laborRate, markupPct]);
+    setPriced({
+      ...next,
+      subtotal: next.subtotal + permitFee,
+      finalTotal: next.finalTotal + permitFee,
+    });
+  }, [estimate, laborRate, markupPct, permitFee]);
 
   useEffect(() => {
     if (genState.status !== "loading") {
@@ -442,6 +303,7 @@ export default function NewEstimatePage() {
       estimate: estimate ?? undefined,
       laborRate,
       markupPct,
+      permitFee,
     };
 
     localStorage.setItem(draftKey, JSON.stringify(payload));
@@ -484,7 +346,7 @@ export default function NewEstimatePage() {
         setProgress(100);
         setGenState({
           status: "ready",
-          msg: !r.ok ? `API failed, used local estimate fallback.` : "API returned invalid data, used local fallback.",
+          msg: !r.ok ? "API failed, used local estimate fallback." : "API returned invalid data, used local fallback.",
         });
 
         if (projectId) {
@@ -494,6 +356,7 @@ export default function NewEstimatePage() {
             estimate: fallback,
             laborRate,
             markupPct,
+            permitFee,
           };
           localStorage.setItem(draftKey, JSON.stringify(payload));
           setUiState({ isSaved: true, lastSavedAt: payload.savedAt });
@@ -509,6 +372,7 @@ export default function NewEstimatePage() {
         generatedAt: new Date().toISOString(),
         summary: data?.summary ?? fallback.summary,
         assumptions: apiAssumptions.length ? apiAssumptions : fallback.assumptions,
+        materialsFound: Array.isArray(data?.materialsFound) ? data.materialsFound : [],
         lineItems:
           apiLineItems.length > 0
             ? apiLineItems.map((item: any) => ({
@@ -524,7 +388,9 @@ export default function NewEstimatePage() {
               }))
             : fallback.lineItems,
         materials: apiMaterials.length > 0 ? apiMaterials : fallback.materials,
-        laborHours: typeof data?.laborHours === "number" && data.laborHours > 0 ? data.laborHours : fallback.laborHours,
+        laborHours:
+          typeof data?.laborHours === "number" && data.laborHours > 0 ? data.laborHours : fallback.laborHours,
+        permitFee: typeof data?.permitFee === "number" ? data.permitFee : 100,
       };
 
       setEstimate(generated);
@@ -538,6 +404,7 @@ export default function NewEstimatePage() {
           estimate: generated,
           laborRate,
           markupPct,
+          permitFee,
         };
         localStorage.setItem(draftKey, JSON.stringify(payload));
         setUiState({ isSaved: true, lastSavedAt: payload.savedAt });
@@ -559,6 +426,7 @@ export default function NewEstimatePage() {
           estimate: fallback,
           laborRate,
           markupPct,
+          permitFee,
         };
         localStorage.setItem(draftKey, JSON.stringify(payload));
         setUiState({ isSaved: true, lastSavedAt: payload.savedAt });
@@ -573,6 +441,7 @@ export default function NewEstimatePage() {
     setEstimate(null);
     setPriced(null);
     setProgress(0);
+    setPermitFee(100);
     setGenState({ status: "idle" });
     setShowAllMaterials(false);
 
@@ -717,6 +586,7 @@ export default function NewEstimatePage() {
 
   const previewCount = 4;
   const materialRows = priced?.pricedMaterials ?? [];
+  const aiMaterialRows = estimate?.materialsFound ?? [];
   const visibleMaterials = showAllMaterials ? materialRows : materialRows.slice(0, previewCount);
   const hiddenMaterialCount = Math.max(0, materialRows.length - previewCount);
 
@@ -970,10 +840,10 @@ export default function NewEstimatePage() {
                     genState.status === "loading"
                       ? "Generating…"
                       : genState.status === "ready"
-                        ? "Estimate already generated. Clear to start a new one."
-                        : !jobDescription.trim()
-                          ? "Enter a job description to generate."
-                          : "Generate estimate"
+                      ? "Estimate already generated. Clear to start a new one."
+                      : !jobDescription.trim()
+                      ? "Enter a job description to generate."
+                      : "Generate estimate"
                   }
                 >
                   ⚡ Generate Estimate
@@ -1165,6 +1035,116 @@ export default function NewEstimatePage() {
               </div>
             )}
 
+            {estimate && (
+              <div style={panelStyle}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    marginBottom: 12,
+                    gap: 12,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div>
+                    <h2 className="panel-title">AI Material List</h2>
+                    <div
+                      style={{
+                        marginTop: 4,
+                        fontSize: 12,
+                        color: C.muted,
+                        fontFamily: font.mono,
+                      }}
+                    >
+                      {aiMaterialRows.length} items found
+                    </div>
+                  </div>
+                  <span className="badge">Takeoff</span>
+                </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gap: 10,
+                  }}
+                >
+                  {aiMaterialRows.length > 0 ? (
+                    aiMaterialRows.map((m, idx) => (
+                      <div
+                        key={`${m.item}-${idx}`}
+                        style={{
+                          padding: "12px 14px",
+                          borderRadius: radius.md,
+                          border: `1px solid ${C.divider}`,
+                          background: "linear-gradient(180deg, #FFFFFF 0%, #FBFEFF 100%)",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            gap: 12,
+                            alignItems: "start",
+                          }}
+                        >
+                          <div style={{ minWidth: 0 }}>
+                            <div
+                              style={{
+                                fontWeight: 800,
+                                color: C.navy,
+                                fontSize: 14,
+                                lineHeight: 1.25,
+                              }}
+                            >
+                              {m.item}
+                            </div>
+
+                            {m.notes && (
+                              <div
+                                style={{
+                                  marginTop: 4,
+                                  fontSize: 12,
+                                  color: C.muted,
+                                  lineHeight: 1.45,
+                                }}
+                              >
+                                {m.notes}
+                              </div>
+                            )}
+                          </div>
+
+                          <div
+                            style={{
+                              fontFamily: font.mono,
+                              fontSize: 13,
+                              color: C.ink,
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {m.qty} {m.unit}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div
+                      style={{
+                        padding: "12px 14px",
+                        borderRadius: radius.md,
+                        border: `1px dashed ${C.divider}`,
+                        background: "rgba(0,119,139,0.04)",
+                        color: C.muted,
+                        fontSize: 13,
+                      }}
+                    >
+                      No AI material takeoff returned for this scope yet.
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {priced && (
               <div style={panelStyle}>
                 <div
@@ -1337,6 +1317,21 @@ export default function NewEstimatePage() {
                     <span style={{ fontFamily: font.mono, color: C.muted, fontSize: 12 }}>%</span>
                   </div>
 
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <span style={{ fontFamily: font.display, fontWeight: 800, color: C.navy }}>Permit Fee</span>
+                    <input
+                      style={miniInput}
+                      inputMode="numeric"
+                      value={permitFee}
+                      onChange={(e) => {
+                        const v = Number(e.target.value);
+                        setPermitFee(Number.isFinite(v) ? v : 0);
+                      }}
+                      onBlur={saveDraft}
+                    />
+                    <span style={{ fontFamily: font.mono, color: C.muted, fontSize: 12 }}>$</span>
+                  </div>
+
                   <button type="button" onClick={saveDraft} style={btnSecondary}>
                     💾 Save Pricing
                   </button>
@@ -1385,6 +1380,9 @@ export default function NewEstimatePage() {
                     <div style={{ fontFamily: font.display, fontWeight: 800, color: C.navy }}>Subtotal</div>
                     <div style={{ fontFamily: font.mono, fontSize: 18, marginTop: 6 }}>
                       ${priced.subtotal.toFixed(2)}
+                    </div>
+                    <div style={{ marginTop: 6, fontSize: 12, color: C.muted, fontFamily: font.mono }}>
+                      Includes permit fee: ${permitFee.toFixed(2)}
                     </div>
                   </div>
 

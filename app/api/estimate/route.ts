@@ -6,11 +6,11 @@ export const runtime = "nodejs";
 type EstimateAIResult = {
   summary: string;
   assumptions: string[];
-  materials: Array<{
-    skuKey: string;
+  materialsFound: Array<{
+    item: string;
     qty: number;
-    unit?: string;
-    name?: string;
+    unit: string;
+    notes?: string;
   }>;
   laborFactors: {
     jobType: string;
@@ -20,6 +20,18 @@ type EstimateAIResult = {
     panelWork: boolean;
     difficulty: "easy" | "standard" | "hard";
   };
+  materialFactors: {
+    jobType: string;
+    deviceCount: number;
+    runLengthFt: number;
+    amperage: number;
+    voltage: number;
+    access: "open" | "attic" | "crawlspace" | "finished";
+    panelWork: boolean;
+    wiringMethod: "nm" | "mc" | "emt" | "pvc" | "unknown";
+    terminationType: "hardwired" | "receptacle" | "switch" | "light" | "unknown";
+    wetLocation: boolean;
+  };
 };
 
 type PricebookItem = {
@@ -27,6 +39,13 @@ type PricebookItem = {
   name: string;
   unit: string;
   baseUnitCost: number;
+};
+
+type NormalizedMaterial = {
+  skuKey: string;
+  qty: number;
+  unit?: string;
+  name?: string;
 };
 
 const PRICEBOOK_ITEMS: PricebookItem[] = Array.isArray(PRICEBOOK.items)
@@ -43,9 +62,7 @@ function clampQty(value: unknown): number {
   return Math.min(9999, Math.round(n * 100) / 100);
 }
 
-function normalizeMaterials(
-  materials: EstimateAIResult["materials"]
-): EstimateAIResult["materials"] {
+function normalizeMaterials(materials: NormalizedMaterial[]): NormalizedMaterial[] {
   if (!Array.isArray(materials)) return [];
 
   const merged = new Map<
@@ -78,9 +95,7 @@ function normalizeMaterials(
   return Array.from(merged.values());
 }
 
-function calculateLaborHours(
-  factors: EstimateAIResult["laborFactors"]
-): number {
+function calculateLaborHours(factors: EstimateAIResult["laborFactors"]): number {
   const baseByJobType: Record<string, number> = {
     ev_charger: 2.5,
     receptacle_install: 1.0,
@@ -100,12 +115,8 @@ function calculateLaborHours(
   };
 
   const base = baseByJobType[safeFactors.jobType] ?? 1.5;
-
-  const deviceAdder =
-    Math.max(0, safeFactors.deviceCount - 1) * 0.35;
-
-  const runAdder =
-    Math.max(0, safeFactors.runLengthFt) * 0.02;
+  const deviceAdder = Math.max(0, safeFactors.deviceCount - 1) * 0.35;
+  const runAdder = Math.max(0, safeFactors.runLengthFt) * 0.02;
 
   const accessAdder =
     safeFactors.access === "attic"
@@ -130,6 +141,72 @@ function calculateLaborHours(
     difficultyMultiplier;
 
   return Math.max(0.5, Math.round(total * 100) / 100);
+}
+
+function buildMaterialsFromFactors(
+  factors: EstimateAIResult["materialFactors"]
+): NormalizedMaterial[] {
+  const items: NormalizedMaterial[] = [];
+
+  const add = (skuKey: string, qty: number) => {
+    const match = PRICEBOOK_MAP.get(skuKey);
+    if (!match || qty <= 0) return;
+
+    items.push({
+      skuKey: match.skuKey,
+      qty: clampQty(qty),
+      unit: match.unit,
+      name: match.name,
+    });
+  };
+
+  if (factors.jobType === "ev_charger") {
+    if (factors.panelWork) {
+      if (factors.amperage >= 60) add("brkr_2p_60", 1);
+      else if (factors.amperage >= 50) add("brkr_2p_50", 1);
+      else if (factors.amperage >= 40) add("brkr_2p_40", 1);
+      else add("brkr_2p_30", 1);
+    }
+
+    if (factors.terminationType === "receptacle") {
+      if (factors.amperage >= 50) add("recept_14_50", 1);
+      else add("recept_6_50", 1);
+
+      add("box_4sq_2_1_8", 1);
+      add("mudring_1g", 1);
+    }
+
+    if (factors.wiringMethod === "nm") {
+      // Only add keys that actually exist in your pricebook
+      if (factors.amperage >= 50) {
+        // nmb_6_2 was not shown in your earlier pricebook, so skipped for now
+      } else {
+        add("nmb_10_2", Math.ceil(factors.runLengthFt * 1.1));
+      }
+    }
+
+    if (factors.wiringMethod === "emt") {
+      const run = Math.ceil(factors.runLengthFt * 1.1);
+
+      add("emt_3_4", run);
+      add("connector_emt_3_4", 2);
+      add("coupling_emt_3_4", Math.max(1, Math.ceil(run / 10) - 1));
+      add("strap_emt_3_4", Math.max(2, Math.ceil(run / 6)));
+
+      if (factors.amperage >= 60) add("thhn_6_black", run * 2);
+      else if (factors.amperage >= 50) add("thhn_8_black", run * 2);
+      else add("thhn_10_black", run * 2);
+    }
+
+    if (factors.wetLocation) {
+      add("wp_cover_1g", 1);
+    }
+
+    add("wirenut_red", 4);
+    add("tape_electrical", 1);
+  }
+
+  return normalizeMaterials(items);
 }
 
 export async function POST(req: Request) {
@@ -172,8 +249,9 @@ You are an electrical estimating assistant.
 Convert the user's job description into:
 - summary
 - assumptions
-- materials
+- materialsFound
 - laborFactors
+- materialFactors
 
 Do NOT estimate final labor hours.
 
@@ -185,16 +263,29 @@ Instead extract the labor-driving variables:
 - panelWork (true if breaker/panel work required)
 - difficulty (easy | standard | hard)
 
+Also extract the material-driving variables:
+- jobType
+- deviceCount
+- runLengthFt
+- amperage
+- voltage
+- access (open | attic | crawlspace | finished)
+- panelWork
+- wiringMethod (nm | mc | emt | pvc | unknown)
+- terminationType (hardwired | receptacle | switch | light | unknown)
+- wetLocation (true | false)
+
 Rules:
 - Do NOT include pricing.
 - Use conservative assumptions.
 - Return ONLY valid JSON matching the schema.
-- Each material MUST include skuKey, qty, unit, and name.
-- You MUST choose skuKey values ONLY from the approved catalog below.
-- Do NOT invent skuKeys.
-- If no exact match exists, leave that material out.
+- Build materialsFound as if checking these categories: primary equipment, wiring/raceway, boxes/support, fittings/connectors, termination hardware, covers/plates, consumables.- Include primary materials, boxes, fittings, connectors, supports, covers, termination hardware, and consumables likely needed to complete the scope.
+- For installation scopes, materialsFound should usually contain at least 8 items unless the job is truly very small.
+- Do NOT return only major items.
+- If a typical support item would normally be needed to complete the installation, include it.
+- Do NOT invent prices.
 
-Approved catalog:
+Approved catalog reference:
 ${catalogForPrompt}
         `.trim(),
         input: [
@@ -211,24 +302,29 @@ ${catalogForPrompt}
             schema: {
               type: "object",
               additionalProperties: false,
-              required: ["summary", "assumptions", "materials", "laborFactors"],
+              required: [
+                "summary",
+                "assumptions",
+                "materialsFound",
+                "laborFactors",
+                "materialFactors",
+              ],
               properties: {
                 summary: { type: "string" },
                 assumptions: {
                   type: "array",
                   items: { type: "string" },
                 },
-                materials: {
+                materialsFound: {
                   type: "array",
                   items: {
                     type: "object",
                     additionalProperties: false,
-                    required: ["skuKey", "qty", "unit", "name"],
-                    properties: {
-                      skuKey: { type: "string" },
+required: ["item", "qty", "unit", "notes"],                    properties: {
+                      item: { type: "string" },
                       qty: { type: "number" },
                       unit: { type: "string" },
-                      name: { type: "string" },
+                      notes: { type: "string" },
                     },
                   },
                 },
@@ -258,6 +354,43 @@ ${catalogForPrompt}
                     },
                   },
                 },
+                materialFactors: {
+                  type: "object",
+                  additionalProperties: false,
+                  required: [
+                    "jobType",
+                    "deviceCount",
+                    "runLengthFt",
+                    "amperage",
+                    "voltage",
+                    "access",
+                    "panelWork",
+                    "wiringMethod",
+                    "terminationType",
+                    "wetLocation",
+                  ],
+                  properties: {
+                    jobType: { type: "string" },
+                    deviceCount: { type: "number" },
+                    runLengthFt: { type: "number" },
+                    amperage: { type: "number" },
+                    voltage: { type: "number" },
+                    access: {
+                      type: "string",
+                      enum: ["open", "attic", "crawlspace", "finished"],
+                    },
+                    panelWork: { type: "boolean" },
+                    wiringMethod: {
+                      type: "string",
+                      enum: ["nm", "mc", "emt", "pvc", "unknown"],
+                    },
+                    terminationType: {
+                      type: "string",
+                      enum: ["hardwired", "receptacle", "switch", "light", "unknown"],
+                    },
+                    wetLocation: { type: "boolean" },
+                  },
+                },
               },
             },
           },
@@ -269,6 +402,7 @@ ${catalogForPrompt}
     ])) as any;
 
     console.log("[/api/estimate] openai done ms:", Date.now() - t0);
+
 
     const rawText = res?.output_text as string | undefined;
     const parsed =
@@ -288,10 +422,75 @@ ${catalogForPrompt}
           .slice(0, 3)
       : [];
 
-    const materials = normalizeMaterials(parsed.materials);
+    const materialsFound = Array.isArray(parsed.materialsFound)
+      ? parsed.materialsFound
+          .filter(
+            (
+              x: unknown
+            ): x is { item: string; qty: number; unit: string; notes?: string } =>
+              !!x &&
+              typeof x === "object" &&
+              typeof (x as { item?: unknown }).item === "string" &&
+              typeof (x as { unit?: unknown }).unit === "string"
+          )
+          .map((m: { item: string; qty: number; unit: string; notes?: string }) => ({
+            item: m.item.trim(),
+            qty: Number.isFinite(m.qty) ? Math.max(0, Number(m.qty)) : 0,
+            unit: m.unit.trim(),
+            notes: typeof m.notes === "string" ? m.notes.trim() : undefined,
+          }))
+      : [];
+console.log("[/api/estimate] materialsFound sample:", materialsFound);
+
+    const materialFactors: EstimateAIResult["materialFactors"] = {
+      jobType:
+        typeof parsed.materialFactors?.jobType === "string"
+          ? parsed.materialFactors.jobType
+          : "general",
+      deviceCount: Number.isFinite(parsed.materialFactors?.deviceCount)
+        ? Math.max(1, Number(parsed.materialFactors.deviceCount))
+        : 1,
+      runLengthFt: Number.isFinite(parsed.materialFactors?.runLengthFt)
+        ? Math.max(0, Number(parsed.materialFactors.runLengthFt))
+        : 0,
+      amperage: Number.isFinite(parsed.materialFactors?.amperage)
+        ? Math.max(0, Number(parsed.materialFactors.amperage))
+        : 0,
+      voltage: Number.isFinite(parsed.materialFactors?.voltage)
+        ? Math.max(0, Number(parsed.materialFactors.voltage))
+        : 0,
+      access:
+        parsed.materialFactors?.access === "attic" ||
+        parsed.materialFactors?.access === "crawlspace" ||
+        parsed.materialFactors?.access === "finished"
+          ? parsed.materialFactors.access
+          : "open",
+      panelWork: Boolean(parsed.materialFactors?.panelWork),
+      wiringMethod:
+        parsed.materialFactors?.wiringMethod === "nm" ||
+        parsed.materialFactors?.wiringMethod === "mc" ||
+        parsed.materialFactors?.wiringMethod === "emt" ||
+        parsed.materialFactors?.wiringMethod === "pvc"
+          ? parsed.materialFactors.wiringMethod
+          : "unknown",
+      terminationType:
+        parsed.materialFactors?.terminationType === "hardwired" ||
+        parsed.materialFactors?.terminationType === "receptacle" ||
+        parsed.materialFactors?.terminationType === "switch" ||
+        parsed.materialFactors?.terminationType === "light"
+          ? parsed.materialFactors.terminationType
+          : "unknown",
+      wetLocation: Boolean(parsed.materialFactors?.wetLocation),
+    };
+
+    const factorMaterials = buildMaterialsFromFactors(materialFactors);
+    const materials = normalizeMaterials([...factorMaterials]);
 
     const laborFactors: EstimateAIResult["laborFactors"] = {
-      jobType: typeof parsed.laborFactors?.jobType === "string" ? parsed.laborFactors.jobType : "general",
+      jobType:
+        typeof parsed.laborFactors?.jobType === "string"
+          ? parsed.laborFactors.jobType
+          : "general",
       deviceCount: Number.isFinite(parsed.laborFactors?.deviceCount)
         ? Math.max(1, Number(parsed.laborFactors.deviceCount))
         : 1,
@@ -314,6 +513,7 @@ ${catalogForPrompt}
 
     const laborHours = calculateLaborHours(laborFactors);
 
+    console.log("[/api/estimate] materialsFound count:", materialsFound.length);
     console.log("[/api/estimate] material count after normalize:", materials.length);
     console.log("[/api/estimate] calculated labor hours:", laborHours);
 
@@ -323,8 +523,10 @@ ${catalogForPrompt}
           ? parsed.summary.trim()
           : "Electrical scope generated from job description.",
       assumptions,
+      materialsFound,
       materials,
       laborFactors,
+      materialFactors,
       laborHours,
     });
   } catch (err: any) {
