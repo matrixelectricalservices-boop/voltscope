@@ -219,7 +219,8 @@ export default function NewEstimatePage() {
   const [permitFee, setPermitFee] = useState(100);
   const [priced, setPriced] = useState<ReturnType<typeof priceEstimate> | null>(null);
   const [showAllMaterials, setShowAllMaterials] = useState(false);
-
+const [showAiMaterials, setShowAiMaterials] = useState(false);
+const [showPricedMaterials, setShowPricedMaterials] = useState(false);
   const [genState, setGenState] = useState<{
     status: "idle" | "loading" | "ready" | "error";
     msg?: string;
@@ -444,6 +445,8 @@ export default function NewEstimatePage() {
     setPermitFee(100);
     setGenState({ status: "idle" });
     setShowAllMaterials(false);
+    setShowAiMaterials(false);
+setShowPricedMaterials(false);
 
     if (projectId) {
       localStorage.removeItem(draftKey);
@@ -584,12 +587,17 @@ export default function NewEstimatePage() {
       .join(" ");
   }
 
-  const previewCount = 4;
-  const materialRows = priced?.pricedMaterials ?? [];
-  const aiMaterialRows = estimate?.materialsFound ?? [];
-  const visibleMaterials = showAllMaterials ? materialRows : materialRows.slice(0, previewCount);
-  const hiddenMaterialCount = Math.max(0, materialRows.length - previewCount);
+ const previewCount = 4;
+const collapsedPreviewCount = 2;
 
+const materialRows = priced?.pricedMaterials ?? [];
+const aiMaterialRows = estimate?.materialsFound ?? [];
+
+const visibleMaterials = showAllMaterials ? materialRows : materialRows.slice(0, previewCount);
+const hiddenMaterialCount = Math.max(0, materialRows.length - previewCount);
+
+const collapsedAiPreview = aiMaterialRows.slice(0, collapsedPreviewCount);
+const collapsedPricedPreview = materialRows.slice(0, collapsedPreviewCount);
   return (
     <>
       <style>{`
@@ -1038,110 +1046,137 @@ export default function NewEstimatePage() {
             {estimate && (
               <div style={panelStyle}>
                 <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    marginBottom: 12,
-                    gap: 12,
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <div>
-                    <h2 className="panel-title">AI Material List</h2>
-                    <div
-                      style={{
-                        marginTop: 4,
-                        fontSize: 12,
-                        color: C.muted,
-                        fontFamily: font.mono,
-                      }}
-                    >
-                      {aiMaterialRows.length} items found
-                    </div>
-                  </div>
-                  <span className="badge">Takeoff</span>
-                </div>
+  style={{
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: showAiMaterials ? 12 : 0,
+    gap: 12,
+    flexWrap: "wrap",
+  }}
+>
+  <div>
+    <h2 className="panel-title">AI Material List</h2>
+    <div
+      style={{
+        marginTop: 4,
+        fontSize: 12,
+        color: C.muted,
+        fontFamily: font.mono,
+      }}
+    >
+      {aiMaterialRows.length} items found
+    </div>
+  </div>
+
+  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+    <span className="badge">Takeoff</span>
+    <button
+      type="button"
+      onClick={() => setShowAiMaterials((s) => !s)}
+      style={{
+        ...btnSecondary,
+        padding: "6px 10px",
+        fontSize: 12,
+      }}
+    >
+      {showAiMaterials ? "Hide" : "Show"}
+    </button>
+  </div>
+</div>
 
                 <div
-                  style={{
-                    display: "grid",
-                    gap: 10,
-                  }}
-                >
-                  {aiMaterialRows.length > 0 ? (
-                    aiMaterialRows.map((m, idx) => (
-                      <div
-                        key={`${m.item}-${idx}`}
-                        style={{
-                          padding: "12px 14px",
-                          borderRadius: radius.md,
-                          border: `1px solid ${C.divider}`,
-                          background: "linear-gradient(180deg, #FFFFFF 0%, #FBFEFF 100%)",
-                        }}
-                      >
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            gap: 12,
-                            alignItems: "start",
-                          }}
-                        >
-                          <div style={{ minWidth: 0 }}>
-                            <div
-                              style={{
-                                fontWeight: 800,
-                                color: C.navy,
-                                fontSize: 14,
-                                lineHeight: 1.25,
-                              }}
-                            >
-                              {m.item}
-                            </div>
+  style={{
+    display: "grid",
+    gap: 10,
+  }}
+>
+  {(showAiMaterials ? aiMaterialRows : collapsedAiPreview).length > 0 ? (
+    (showAiMaterials ? aiMaterialRows : collapsedAiPreview).map((m, idx) => (
+      <div
+        key={`${m.item}-${idx}`}
+        style={{
+          padding: "12px 14px",
+          borderRadius: radius.md,
+          border: `1px solid ${C.divider}`,
+          background: "linear-gradient(180deg, #FFFFFF 0%, #FBFEFF 100%)",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            gap: 12,
+            alignItems: "start",
+          }}
+        >
+          <div style={{ minWidth: 0 }}>
+            <div
+              style={{
+                fontWeight: 800,
+                color: C.navy,
+                fontSize: 14,
+                lineHeight: 1.25,
+              }}
+            >
+              {m.item}
+            </div>
 
-                            {m.notes && (
-                              <div
-                                style={{
-                                  marginTop: 4,
-                                  fontSize: 12,
-                                  color: C.muted,
-                                  lineHeight: 1.45,
-                                }}
-                              >
-                                {m.notes}
-                              </div>
-                            )}
-                          </div>
+            {m.notes && (
+              <div
+                style={{
+                  marginTop: 4,
+                  fontSize: 12,
+                  color: C.muted,
+                  lineHeight: 1.45,
+                }}
+              >
+                {m.notes}
+              </div>
+            )}
+          </div>
 
-                          <div
-                            style={{
-                              fontFamily: font.mono,
-                              fontSize: 13,
-                              color: C.ink,
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {m.qty} {m.unit}
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div
-                      style={{
-                        padding: "12px 14px",
-                        borderRadius: radius.md,
-                        border: `1px dashed ${C.divider}`,
-                        background: "rgba(0,119,139,0.04)",
-                        color: C.muted,
-                        fontSize: 13,
-                      }}
-                    >
-                      No AI material takeoff returned for this scope yet.
-                    </div>
-                  )}
-                </div>
+          <div
+            style={{
+              fontFamily: font.mono,
+              fontSize: 13,
+              color: C.ink,
+              whiteSpace: "nowrap",
+            }}
+          >
+            {m.qty} {m.unit}
+          </div>
+        </div>
+      </div>
+    ))
+  ) : (
+    <div
+      style={{
+        padding: "12px 14px",
+        borderRadius: radius.md,
+        border: `1px dashed ${C.divider}`,
+        background: "rgba(0,119,139,0.04)",
+        color: C.muted,
+        fontSize: 13,
+      }}
+    >
+      No AI material takeoff returned for this scope yet.
+    </div>
+  )}
+
+  {!showAiMaterials && aiMaterialRows.length > collapsedPreviewCount && (
+    <div
+      style={{
+        padding: "4px 2px 0",
+        fontSize: 12,
+        color: C.muted,
+        fontFamily: font.body,
+      }}
+    >
+      Previewing {collapsedAiPreview.length} of {aiMaterialRows.length} items
+    </div>
+  )}
+</div>
               </div>
             )}
 
@@ -1162,25 +1197,25 @@ export default function NewEstimatePage() {
                 </div>
 
                 <div
-                  style={{
-                    marginBottom: 12,
-                    border: `1px solid ${C.divider}`,
-                    borderRadius: radius.md,
-                    overflow: "hidden",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: 12,
-                      background: `linear-gradient(180deg, ${C.tealLight} 0%, #F6FBFC 100%)`,
-                      padding: "10px 12px",
-                      borderBottom: `1px solid ${C.divider}`,
-                      flexWrap: "wrap",
-                    }}
-                  >
+  style={{
+    marginBottom: 12,
+    border: `1px solid ${C.divider}`,
+    borderRadius: radius.md,
+    overflow: "hidden",
+  }}
+>
+  <div
+    style={{
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 12,
+      background: `linear-gradient(180deg, ${C.tealLight} 0%, #F6FBFC 100%)`,
+      padding: "10px 12px",
+      borderBottom: showPricedMaterials ? `1px solid ${C.divider}` : "none",
+      flexWrap: "wrap",
+    }}
+  >
                     <div>
                       <div
                         style={{
@@ -1207,59 +1242,107 @@ export default function NewEstimatePage() {
                       </div>
                     </div>
 
-                    {materialRows.length > previewCount && (
-                      <button
-                        type="button"
-                        onClick={() => setShowAllMaterials((s) => !s)}
-                        style={{
-                          ...btnSecondary,
-                          padding: "6px 10px",
-                          fontSize: 12,
-                        }}
-                      >
-                        {showAllMaterials ? "Show Less" : `Show All (${materialRows.length})`}
-                      </button>
-                    )}
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+  <button
+    type="button"
+    onClick={() => setShowPricedMaterials((s) => !s)}
+    style={{
+      ...btnSecondary,
+      padding: "6px 10px",
+      fontSize: 12,
+    }}
+  >
+    {showPricedMaterials ? "Hide" : "Show"}
+  </button>
+
+  {showPricedMaterials && materialRows.length > previewCount && (
+    <button
+      type="button"
+      onClick={() => setShowAllMaterials((s) => !s)}
+      style={{
+        ...btnSecondary,
+        padding: "6px 10px",
+        fontSize: 12,
+      }}
+    >
+      {showAllMaterials ? "Show Less" : `Show All (${materialRows.length})`}
+    </button>
+  )}
+</div>
                   </div>
 
-                  {visibleMaterials.map((m) => (
-                    <div
-                      key={m.skuKey}
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "1.3fr 0.35fr 0.6fr 0.6fr",
-                        padding: "12px 14px",
-                        borderTop: `1px solid ${C.divider}`,
-                        alignItems: "center",
-                        gap: 10,
-                        background: m.missingFromPricebook
-                          ? "linear-gradient(180deg, rgba(200,169,110,0.10) 0%, rgba(245,236,216,0.6) 100%)"
-                          : "linear-gradient(180deg, #FFFFFF 0%, #FBFEFF 100%)",
-                      }}
-                    >
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontWeight: 800, color: C.navy, fontSize: 14, lineHeight: 1.25 }}>
-                          {conciseMaterialName(m.name, m.skuKey)}
-                        </div>
-                        <div style={{ marginTop: 4, fontSize: 12, color: C.muted, fontFamily: font.mono }}>
-                          {m.skuKey}
-                          {m.missingFromPricebook ? " · missing from price book" : ""}
-                        </div>
-                      </div>
+                  <>
+  {(showPricedMaterials ? visibleMaterials : collapsedPricedPreview).map((m) => (
+    <div
+      key={m.skuKey}
+      style={{
+        display: "grid",
+        gridTemplateColumns: "1.3fr 0.35fr 0.6fr 0.6fr",
+        padding: "12px 14px",
+        borderTop: `1px solid ${C.divider}`,
+        alignItems: "center",
+        gap: 10,
+       background: showPricedMaterials
+  ? m.missingFromPricebook
+    ? "linear-gradient(180deg, rgba(200,169,110,0.10) 0%, rgba(245,236,216,0.6) 100%)"
+    : "linear-gradient(180deg, #FFFFFF 0%, #FBFEFF 100%)"
+  : "linear-gradient(180deg, rgba(255,255,255,0.72) 0%, rgba(251,254,255,0.72) 100%)",
+opacity: showPricedMaterials ? 1 : 0.82,  }}
+    >
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontWeight: 800, color: C.navy, fontSize: 14, lineHeight: 1.25 }}>
+          {conciseMaterialName(m.name, m.skuKey)}
+        </div>
+        <div style={{ marginTop: 4, fontSize: 12, color: C.muted, fontFamily: font.mono }}>
+          {m.skuKey}
+          {m.missingFromPricebook ? " · missing from price book" : ""}
+        </div>
+      </div>
 
-                      <div style={{ textAlign: "right", fontFamily: font.mono, color: C.ink, fontSize: 13 }}>
-                        {m.qty}
-                      </div>
+      <div style={{ textAlign: "right", fontFamily: font.mono, color: C.ink, fontSize: 13 }}>
+        {m.qty}
+      </div>
 
-                      <div style={{ textAlign: "right", fontFamily: font.mono, color: C.muted, fontSize: 13 }}>
-                        {m.unit} @ ${m.adjUnitCost.toFixed(2)}
-                      </div>
+      <div style={{ textAlign: "right", fontFamily: font.mono, color: C.muted, fontSize: 13 }}>
+        {m.unit} @ ${m.adjUnitCost.toFixed(2)}
+      </div>
 
-                      <div style={{ textAlign: "right", fontFamily: font.mono, color: C.ink, fontSize: 13 }}>
-                        ${m.lineTotal.toFixed(2)}
-                      </div>
-                    </div>
-                  ))}
+      <div style={{ textAlign: "right", fontFamily: font.mono, color: C.ink, fontSize: 13 }}>
+        ${m.lineTotal.toFixed(2)}
+      </div>
+    </div>
+  ))}
+
+  {!showPricedMaterials && materialRows.length > collapsedPreviewCount && (
+    <div
+      style={{
+        padding: "10px 12px",
+        borderTop: `1px solid ${C.divider}`,
+        background: "rgba(0,119,139,0.04)",
+        fontSize: 12,
+        color: C.muted,
+        fontFamily: font.body,
+      }}
+    >
+      Previewing {collapsedPricedPreview.length} of {materialRows.length} materials
+    </div>
+  )}
+
+  {showPricedMaterials && !showAllMaterials && hiddenMaterialCount > 0 && (
+    <div
+      style={{
+        padding: "10px 12px",
+        borderTop: `1px solid ${C.divider}`,
+        background: "rgba(0,119,139,0.04)",
+        fontSize: 12,
+        color: C.muted,
+        fontFamily: font.body,
+      }}
+    >
+      Showing {visibleMaterials.length} of {materialRows.length} materials · {hiddenMaterialCount} more hidden
+    </div>
+  )}
+</>
 
                   {!showAllMaterials && hiddenMaterialCount > 0 && (
                     <div
