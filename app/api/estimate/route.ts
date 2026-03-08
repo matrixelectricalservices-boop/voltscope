@@ -13,13 +13,18 @@ type EstimateAIResult = {
     notes?: string;
   }>;
   laborFactors: {
-    jobType: string;
-    deviceCount: number;
-    runLengthFt: number;
-    access: "open" | "attic" | "crawlspace" | "finished";
-    panelWork: boolean;
-    difficulty: "easy" | "standard" | "hard";
-  };
+  jobType: string;
+  deviceCount: number;
+  runLengthFt: number;
+  access: "open" | "attic" | "crawlspace" | "finished";
+  panelWork: boolean;
+  difficulty: "easy" | "standard" | "hard";
+  amperage: number;
+  voltage: number;
+  wiringMethod: "nm" | "mc" | "emt" | "pvc" | "unknown";
+  terminationType: "hardwired" | "receptacle" | "switch" | "light" | "unknown";
+  wetLocation: boolean;
+};
   materialFactors: {
     jobType: string;
     deviceCount: number;
@@ -95,6 +100,188 @@ function normalizeMaterials(materials: NormalizedMaterial[]): NormalizedMaterial
   return Array.from(merged.values());
 }
 
+function normalizeText(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/"/g, "in")
+    .replace(/-/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+function matchAiItemToSku(itemName: string): string | null {
+  const t = normalizeText(itemName);
+
+  if (t.includes("nema 14 50") || t.includes("14 50 receptacle") || t.includes("14 50 outlet")) {
+    return "recept_14_50";
+  }
+
+  if (t.includes("nema 6 50") || t.includes("6 50 receptacle") || t.includes("6 50 outlet")) {
+  return "recept_6_50";
+}
+
+if (t.includes("2 pole") && t.includes("60") && t.includes("breaker")) {
+  return "brkr_2p_60";
+}
+
+if (t.includes("2 pole") && t.includes("50") && t.includes("breaker")) {
+  return "brkr_2p_50";
+}
+
+if (t.includes("2 pole") && t.includes("40") && t.includes("breaker")) {
+  return "brkr_2p_40";
+}
+
+if (t.includes("2 pole") && t.includes("30") && t.includes("breaker")) {
+  return "brkr_2p_30";
+}
+
+if (t.includes("1 pole") && t.includes("20") && t.includes("breaker")) {
+  return "brkr_1p_20";
+}
+
+if (t.includes("1 pole") && t.includes("15") && t.includes("breaker")) {
+  return "brkr_1p_15";
+}
+
+if (t.includes("4 square box") || t.includes("4sq box") || t.includes("4 in square box")) {
+  return "box_4sq_2_1_8";
+}
+
+if (t.includes("octagon box") || t.includes("4 in octagon")) {
+  return "box_oct_4in";
+}
+
+if (t.includes("round pan box") || t.includes("pan box")) {
+  return "box_round_pan";
+}
+
+if (t.includes("mud ring 1 gang") || t.includes("1 gang mud ring")) {
+  return "mudring_1g";
+}
+
+if (t.includes("mud ring 2 gang") || t.includes("2 gang mud ring")) {
+  return "mudring_2g";
+}
+
+if (t.includes("3/4 emt") || t.includes("emt 3/4") || t.includes("3 4 emt")) {
+  return "emt_3_4";
+}
+
+if (t.includes("1/2 emt") || t.includes("emt 1/2") || t.includes("1 2 emt")) {
+  return "emt_1_2";
+}
+
+if (t.includes("emt connector 3/4") || t.includes("3/4 emt connector") || t.includes("3 4 emt connector")) {
+  return "connector_emt_3_4";
+}
+
+if (t.includes("emt connector 1/2") || t.includes("1/2 emt connector") || t.includes("1 2 emt connector")) {
+  return "connector_emt_1_2";
+}
+
+if (t.includes("emt coupling 3/4") || t.includes("3/4 emt coupling") || t.includes("3 4 emt coupling")) {
+  return "coupling_emt_3_4";
+}
+
+if (t.includes("emt coupling 1/2") || t.includes("1/2 emt coupling") || t.includes("1 2 emt coupling")) {
+  return "coupling_emt_1_2";
+}
+
+if (t.includes("emt strap 3/4") || t.includes("3/4 emt strap") || t.includes("3 4 emt strap")) {
+  return "strap_emt_3_4";
+}
+
+if (t.includes("emt strap 1/2") || t.includes("1/2 emt strap") || t.includes("1 2 emt strap")) {
+  return "strap_emt_1_2";
+}
+
+if (t.includes("nm b 10/2") || t.includes("nm 10/2") || t.includes("10/2 nm")) {
+  return "nmb_10_2";
+}
+
+if (t.includes("nm b 10/3") || t.includes("nm 10/3") || t.includes("10/3 nm")) {
+  return "nmb_10_3";
+}
+
+if (t.includes("nm b 12/2") || t.includes("nm 12/2") || t.includes("12/2 nm")) {
+  return "nmb_12_2";
+}
+
+if (t.includes("nm b 12/3") || t.includes("nm 12/3") || t.includes("12/3 nm")) {
+  return "nmb_12_3";
+}
+
+if (t.includes("mc 12/2") || t.includes("12/2 mc") || t.includes("mc cable 12/2")) {
+  return "mc_12_2";
+}
+
+if (t.includes("mc 12/3") || t.includes("12/3 mc") || t.includes("mc cable 12/3")) {
+  return "mc_12_3";
+}
+
+if (t.includes("mc 10/2") || t.includes("10/2 mc") || t.includes("mc cable 10/2")) {
+  return "mc_10_2";
+}
+
+if (t.includes("mc 6/2") || t.includes("6/2 mc") || t.includes("mc cable 6/2")) {
+  return "mc_6_2";
+}
+
+if (t.includes("thhn 10") || t.includes("#10 thhn") || t.includes("10 awg thhn")) {
+  return "thhn_10_black";
+}
+
+if (t.includes("thhn 8") || t.includes("#8 thhn") || t.includes("8 awg thhn")) {
+  return "thhn_8_black";
+}
+
+if (t.includes("thhn 6") || t.includes("#6 thhn") || t.includes("6 awg thhn")) {
+  return "thhn_6_black";
+}
+
+if (t.includes("gfci") && t.includes("20")) {
+  return "recept_gfci_20a";
+}
+
+if (t.includes("gfci") && t.includes("15")) {
+  return "recept_gfci_15a";
+}
+
+if (t.includes("duplex receptacle") && t.includes("20")) {
+  return "recept_tr_20a";
+}
+
+if (t.includes("duplex receptacle") && t.includes("15")) {
+  return "recept_tr_15a";
+}
+
+if (t.includes("single pole switch") || t.includes("single-pole switch")) {
+  return "switch_sp";
+}
+
+if (t.includes("3 way switch") || t.includes("3-way switch")) {
+  return "switch_3w";
+}
+
+if (t.includes("led dimmer") || t.includes("dimmer switch")) {
+  return "dimmer_led";
+}
+
+if (t.includes("weatherproof cover 1 gang") || t.includes("1 gang weatherproof cover")) {
+  return "wp_cover_1g";
+}
+
+if (t.includes("bubble cover 1 gang") || t.includes("in use cover 1 gang")) {
+  return "bubble_cover_1g";
+}
+
+if (t.includes("1 gang decora plate") || t.includes("decora wall plate")) {
+  return "plate_1g_decora";
+}
+
+return null;
+}
+
 function calculateLaborHours(factors: EstimateAIResult["laborFactors"]): number {
   const baseByJobType: Record<string, number> = {
     ev_charger: 2.5,
@@ -112,6 +299,11 @@ function calculateLaborHours(factors: EstimateAIResult["laborFactors"]): number 
     access: factors?.access ?? "open",
     panelWork: Boolean(factors?.panelWork),
     difficulty: factors?.difficulty ?? "standard",
+    amperage: Number(factors?.amperage ?? 0),
+    voltage: Number(factors?.voltage ?? 0),
+    wiringMethod: factors?.wiringMethod ?? "unknown",
+    terminationType: factors?.terminationType ?? "unknown",
+    wetLocation: Boolean(factors?.wetLocation),
   };
 
   const base = baseByJobType[safeFactors.jobType] ?? 1.5;
@@ -129,6 +321,33 @@ function calculateLaborHours(factors: EstimateAIResult["laborFactors"]): number 
 
   const panelAdder = safeFactors.panelWork ? 0.75 : 0;
 
+  const amperageAdder =
+    safeFactors.amperage >= 100
+      ? 1.5
+      : safeFactors.amperage >= 60
+      ? 0.75
+      : safeFactors.amperage >= 50
+      ? 0.5
+      : 0;
+
+  const wiringAdder =
+    safeFactors.wiringMethod === "emt"
+      ? 0.75
+      : safeFactors.wiringMethod === "pvc"
+      ? 0.85
+      : safeFactors.wiringMethod === "mc"
+      ? 0.35
+      : 0;
+
+  const terminationAdder =
+    safeFactors.terminationType === "hardwired"
+      ? 0.35
+      : safeFactors.terminationType === "light"
+      ? 0.2
+      : 0;
+
+  const wetLocationAdder = safeFactors.wetLocation ? 0.35 : 0;
+
   const difficultyMultiplier =
     safeFactors.difficulty === "easy"
       ? 0.9
@@ -137,8 +356,17 @@ function calculateLaborHours(factors: EstimateAIResult["laborFactors"]): number 
       : 1;
 
   const total =
-    (base + deviceAdder + runAdder + accessAdder + panelAdder) *
-    difficultyMultiplier;
+    (
+      base +
+      deviceAdder +
+      runAdder +
+      accessAdder +
+      panelAdder +
+      amperageAdder +
+      wiringAdder +
+      terminationAdder +
+      wetLocationAdder
+    ) * difficultyMultiplier;
 
   return Math.max(0.5, Math.round(total * 100) / 100);
 }
@@ -209,6 +437,30 @@ function buildMaterialsFromFactors(
   return normalizeMaterials(items);
 }
 
+function buildMaterialsFromAiTakeoff(
+  materialsFound: Array<{
+    item: string;
+    qty: number;
+    unit: string;
+    notes?: string;
+  }>
+): NormalizedMaterial[] {
+  const items: NormalizedMaterial[] = [];
+
+  for (const m of materialsFound) {
+    const skuKey = matchAiItemToSku(m.item);
+    if (!skuKey) continue;
+
+    items.push({
+      skuKey,
+      qty: clampQty(m.qty),
+    });
+  }
+
+  return normalizeMaterials(items);
+}
+
+
 export async function POST(req: Request) {
   try {
     const apiKey = process.env.OPENAI_API_KEY;
@@ -232,7 +484,7 @@ export async function POST(req: Request) {
     console.log("[/api/estimate] description chars:", description.length);
 
     const t0 = Date.now();
-    const OPENAI_TIMEOUT_MS = 25_000;
+    const OPENAI_TIMEOUT_MS = 45_000;
 
     const catalogForPrompt = PRICEBOOK_ITEMS.map(
       (item) => `${item.skuKey} | ${item.unit} | ${item.name}`
@@ -242,7 +494,7 @@ export async function POST(req: Request) {
       client.responses.create({
         model: "gpt-5-mini",
         reasoning: { effort: "minimal" },
-        max_output_tokens: 1800,
+        max_output_tokens: 1200,
         instructions: `
 You are an electrical estimating assistant.
 
@@ -262,6 +514,11 @@ Instead extract the labor-driving variables:
 - access (open | attic | crawlspace | finished)
 - panelWork (true if breaker/panel work required)
 - difficulty (easy | standard | hard)
+- amperage
+- voltage
+- wiringMethod (nm | mc | emt | pvc | unknown)
+- terminationType (hardwired | receptacle | switch | light | unknown)
+- wetLocation (true | false)
 
 Also extract the material-driving variables:
 - jobType
@@ -331,28 +588,44 @@ required: ["item", "qty", "unit", "notes"],                    properties: {
                 laborFactors: {
                   type: "object",
                   additionalProperties: false,
-                  required: [
-                    "jobType",
-                    "deviceCount",
-                    "runLengthFt",
-                    "access",
-                    "panelWork",
-                    "difficulty",
-                  ],
-                  properties: {
-                    jobType: { type: "string" },
-                    deviceCount: { type: "number" },
-                    runLengthFt: { type: "number" },
-                    access: {
-                      type: "string",
-                      enum: ["open", "attic", "crawlspace", "finished"],
-                    },
-                    panelWork: { type: "boolean" },
-                    difficulty: {
-                      type: "string",
-                      enum: ["easy", "standard", "hard"],
-                    },
-                  },
+               required: [
+  "jobType",
+  "deviceCount",
+  "runLengthFt",
+  "access",
+  "panelWork",
+  "difficulty",
+  "amperage",
+  "voltage",
+  "wiringMethod",
+  "terminationType",
+  "wetLocation",
+],
+                 properties: {
+  jobType: { type: "string" },
+  deviceCount: { type: "number" },
+  runLengthFt: { type: "number" },
+  access: {
+    type: "string",
+    enum: ["open", "attic", "crawlspace", "finished"],
+  },
+  panelWork: { type: "boolean" },
+  difficulty: {
+    type: "string",
+    enum: ["easy", "standard", "hard"],
+  },
+  amperage: { type: "number" },
+  voltage: { type: "number" },
+  wiringMethod: {
+    type: "string",
+    enum: ["nm", "mc", "emt", "pvc", "unknown"],
+  },
+  terminationType: {
+    type: "string",
+    enum: ["hardwired", "receptacle", "switch", "light", "unknown"],
+  },
+  wetLocation: { type: "boolean" },
+},
                 },
                 materialFactors: {
                   type: "object",
@@ -440,8 +713,10 @@ required: ["item", "qty", "unit", "notes"],                    properties: {
             notes: typeof m.notes === "string" ? m.notes.trim() : undefined,
           }))
       : [];
-console.log("[/api/estimate] materialsFound sample:", materialsFound);
-
+console.log(
+  "[/api/estimate] materialsFound items:",
+  materialsFound.map((m: { item: string }) => m.item)
+);
     const materialFactors: EstimateAIResult["materialFactors"] = {
       jobType:
         typeof parsed.materialFactors?.jobType === "string"
@@ -483,33 +758,55 @@ console.log("[/api/estimate] materialsFound sample:", materialsFound);
       wetLocation: Boolean(parsed.materialFactors?.wetLocation),
     };
 
-    const factorMaterials = buildMaterialsFromFactors(materialFactors);
-    const materials = normalizeMaterials([...factorMaterials]);
-
-    const laborFactors: EstimateAIResult["laborFactors"] = {
-      jobType:
-        typeof parsed.laborFactors?.jobType === "string"
-          ? parsed.laborFactors.jobType
-          : "general",
-      deviceCount: Number.isFinite(parsed.laborFactors?.deviceCount)
-        ? Math.max(1, Number(parsed.laborFactors.deviceCount))
-        : 1,
-      runLengthFt: Number.isFinite(parsed.laborFactors?.runLengthFt)
-        ? Math.max(0, Number(parsed.laborFactors.runLengthFt))
-        : 0,
-      access:
-        parsed.laborFactors?.access === "attic" ||
-        parsed.laborFactors?.access === "crawlspace" ||
-        parsed.laborFactors?.access === "finished"
-          ? parsed.laborFactors.access
-          : "open",
-      panelWork: Boolean(parsed.laborFactors?.panelWork),
-      difficulty:
-        parsed.laborFactors?.difficulty === "easy" ||
-        parsed.laborFactors?.difficulty === "hard"
-          ? parsed.laborFactors.difficulty
-          : "standard",
-    };
+   const factorMaterials = buildMaterialsFromFactors(materialFactors);
+const aiTakeoffMaterials = buildMaterialsFromAiTakeoff(materialsFound);
+console.log("[/api/estimate] aiTakeoffMaterials:", aiTakeoffMaterials);
+const materials = normalizeMaterials([...factorMaterials, ...aiTakeoffMaterials]);
+   const laborFactors: EstimateAIResult["laborFactors"] = {
+  jobType:
+    typeof parsed.laborFactors?.jobType === "string"
+      ? parsed.laborFactors.jobType
+      : "general",
+  deviceCount: Number.isFinite(parsed.laborFactors?.deviceCount)
+    ? Math.max(1, Number(parsed.laborFactors.deviceCount))
+    : 1,
+  runLengthFt: Number.isFinite(parsed.laborFactors?.runLengthFt)
+    ? Math.max(0, Number(parsed.laborFactors.runLengthFt))
+    : 0,
+  access:
+    parsed.laborFactors?.access === "attic" ||
+    parsed.laborFactors?.access === "crawlspace" ||
+    parsed.laborFactors?.access === "finished"
+      ? parsed.laborFactors.access
+      : "open",
+  panelWork: Boolean(parsed.laborFactors?.panelWork),
+  difficulty:
+    parsed.laborFactors?.difficulty === "easy" ||
+    parsed.laborFactors?.difficulty === "hard"
+      ? parsed.laborFactors.difficulty
+      : "standard",
+  amperage: Number.isFinite(parsed.laborFactors?.amperage)
+    ? Math.max(0, Number(parsed.laborFactors.amperage))
+    : 0,
+  voltage: Number.isFinite(parsed.laborFactors?.voltage)
+    ? Math.max(0, Number(parsed.laborFactors.voltage))
+    : 0,
+  wiringMethod:
+    parsed.laborFactors?.wiringMethod === "nm" ||
+    parsed.laborFactors?.wiringMethod === "mc" ||
+    parsed.laborFactors?.wiringMethod === "emt" ||
+    parsed.laborFactors?.wiringMethod === "pvc"
+      ? parsed.laborFactors.wiringMethod
+      : "unknown",
+  terminationType:
+    parsed.laborFactors?.terminationType === "hardwired" ||
+    parsed.laborFactors?.terminationType === "receptacle" ||
+    parsed.laborFactors?.terminationType === "switch" ||
+    parsed.laborFactors?.terminationType === "light"
+      ? parsed.laborFactors.terminationType
+      : "unknown",
+  wetLocation: Boolean(parsed.laborFactors?.wetLocation),
+};
 
     const laborHours = calculateLaborHours(laborFactors);
 
