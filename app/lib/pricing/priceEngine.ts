@@ -57,6 +57,91 @@ function getBaseItem(skuKey: string) {
   const items = (materialsJson as any).items as Array<any>;
   return items?.find((x) => x?.skuKey === skuKey);
 }
+const AI_FALLBACK_PRICE_MAP: Record<
+  string,
+  { name: string; unit: string; baseUnitCost: number }
+> = {
+  meter_socket_200a: {
+    name: "Meter socket 200A",
+    unit: "ea",
+    baseUnitCost: 165,
+  },
+  service_lugs_or_main_200a_panel: {
+    name: "Main 200A panel / service lugs",
+    unit: "ea",
+    baseUnitCost: 245,
+  },
+  service_conductor_2_0_cu_xhwt: {
+    name: "Service conductor 2/0 CU",
+    unit: "ft",
+    baseUnitCost: 4.5,
+  },
+  grounding_conductor_4_0_cu_or_2_awg_cu: {
+    name: "Grounding conductor",
+    unit: "ft",
+    baseUnitCost: 1.6,
+  },
+  ground_rod_8ft: {
+    name: "Ground rod 8ft",
+    unit: "ea",
+    baseUnitCost: 22,
+  },
+  conduit_rigid_emt_or_pvc: {
+    name: "Conduit",
+    unit: "ft",
+    baseUnitCost: 1.25,
+  },
+  meter_seal_and_locking_ring: {
+    name: "Meter seal / locking ring",
+    unit: "ea",
+    baseUnitCost: 18,
+  },
+  service_disconnect_handles_or_cover: {
+    name: "Service disconnect handle / cover",
+    unit: "ea",
+    baseUnitCost: 35,
+  },
+  lug_kits_and_terminal_connectors: {
+    name: "Lug kits / terminal connectors",
+    unit: "ea",
+    baseUnitCost: 18,
+  },
+  bonding_jumpers_and_straps: {
+    name: "Bonding jumpers / straps",
+    unit: "ea",
+    baseUnitCost: 12,
+  },
+  weatherproof_covers_and_box_supports: {
+    name: "Weatherproof covers / box supports",
+    unit: "ea",
+    baseUnitCost: 10,
+  },
+  fasteners_anchor_bolts: {
+    name: "Fasteners / anchor bolts",
+    unit: "ea",
+    baseUnitCost: 8,
+  },
+  insulation_tape_and_heat_shrink: {
+    name: "Insulation tape / heat shrink",
+    unit: "ea",
+    baseUnitCost: 12,
+  },
+  anti_oxidant_compound: {
+    name: "Anti-oxidant compound",
+    unit: "ea",
+    baseUnitCost: 9,
+  },
+  caulking_sealant: {
+    name: "Caulking / sealant",
+    unit: "ea",
+    baseUnitCost: 7,
+  },
+  labels_and_panel_directory: {
+    name: "Labels / panel directory",
+    unit: "ea",
+    baseUnitCost: 4,
+  },
+};
 
 function getStateMultipliers(state?: string) {
   const m = multipliersJson as any;
@@ -88,9 +173,10 @@ export function priceEstimate(input: PriceInputs): PriceOutputs {
 
   const pricedMaterials: PricedMaterialLine[] = (input.materials || []).map((m) => {
     const base = getBaseItem(m.skuKey);
+const fallback = AI_FALLBACK_PRICE_MAP[m.skuKey];
 
-    const missingFromPricebook = !base;
-    const baseUnitCost = safeNum(base?.baseUnitCost, 0);
+const missingFromPricebook = !base && !fallback;
+const baseUnitCost = safeNum(base?.baseUnitCost ?? fallback?.baseUnitCost, 0);
 
     const adjUnitCost = baseUnitCost * stateMult.material * monthIdx.material;
     const qty = safeNum(m.qty, 0);
