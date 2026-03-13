@@ -177,7 +177,9 @@
     { "skuKey": "disconnect_100a_nonfus","name":"Disconnect 100A non-fused",                  "unit": "ea",  "baseUnitCost": 75.0  },
     { "skuKey": "disconnect_200a_nonfus","name":"Disconnect 200A non-fused",                  "unit": "ea",  "baseUnitCost": 165.0 },
     { "skuKey": "meter_base_200a",      "name": "Meter base 200A (ringless)",                 "unit": "ea",  "baseUnitCost": 165.0 },
+    { "skuKey": "meter_base_400a",      "name": "Meter base 400A (ringless, 320A rated)",     "unit": "ea",  "baseUnitCost": 285.0 },
     { "skuKey": "meter_socket_200a",    "name": "Meter socket 200A (overhead service)",       "unit": "ea",  "baseUnitCost": 175.0 },
+    { "skuKey": "meter_socket_400a",    "name": "Meter socket 400A (overhead service)",       "unit": "ea",  "baseUnitCost": 385.0 },
     { "skuKey": "fuse_30a",             "name": "Fuse 30A (cartridge)",                       "unit": "ea",  "baseUnitCost": 6.0   },
     { "skuKey": "fuse_60a",             "name": "Fuse 60A (cartridge)",                       "unit": "ea",  "baseUnitCost": 9.0   },
 
