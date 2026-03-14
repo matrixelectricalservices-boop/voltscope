@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import { getProjects } from "../../../../lib/projectStore";
+import { generateEstimatePdf } from "../../../../lib/generateEstimatePdf";
 
 // ---------------------------------------------------------------------------
 // Types — match route.ts response exactly
@@ -304,6 +305,35 @@ export default function NewEstimatePage() {
     if (projectId) { localStorage.removeItem(draftKey); setUiState({ isSaved: false }); }
   }
 
+  function handleDownloadPdf() {
+    if (!estimate || !totals) return;
+    generateEstimatePdf({
+      companyName:    "Voltscope Electric",
+      companyPhone:   "(555) 000-0000",
+      companyEmail:   "estimates@voltscope.com",
+      customerName:   project?.customerName ?? "Customer",
+      jobType:        project?.jobType,
+      jobDescription: jobDescription,
+      estimateDate:   new Date().toLocaleDateString("en-US"),
+      summary:        estimate.summary,
+      assumptions:    estimate.assumptions,
+      scopeType:      estimate.scopeType,
+      sqft:           estimate.sqft,
+      materials:      materialLines,
+      labor:          estimate.labor.map((l) => ({ ...l, rate: laborRate, total: l.hours * laborRate })),
+      laborHours:     estimate.laborHours,
+      laborRate,
+      materialTotal:  totals.materialTotal,
+      laborTotal:     totals.laborTotal,
+      subtotal:       totals.subtotal,
+      markup:         totals.markup,
+      markupPct,
+      permitFee,
+      finalTotal:     totals.finalTotal,
+      ratePerSqft:    totals.ratePerSqft,
+    });
+  }
+
   const canGenerate = jobDescription.trim().length > 0 && genState.status !== "loading" && genState.status !== "ready";
 
   const PREVIEW = 6;
@@ -385,7 +415,14 @@ export default function NewEstimatePage() {
                 )}
               </div>
             </div>
-            <button type="button" onClick={saveDraft} style={btnPrimary}>💾 Save Draft</button>
+            <div style={{ display: "flex", gap: 10 }}>
+              {estimate && totals && (
+                <button type="button" onClick={handleDownloadPdf} style={{ ...btnSecondary, background: `linear-gradient(160deg, ${C.teal} 0%, ${C.tealDark} 100%)`, color: C.white, border: `1.5px solid ${C.tealDark}` }}>
+                  📄 Download PDF
+                </button>
+              )}
+              <button type="button" onClick={saveDraft} style={btnPrimary}>💾 Save Draft</button>
+            </div>
           </div>
 
           <div className="grid">
