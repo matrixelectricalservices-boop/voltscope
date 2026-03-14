@@ -170,7 +170,7 @@ export default function NewEstimatePage() {
   const [uiState,            setUiState]           = useState<UIState>({ isSaved: false });
   const [jobDescription,     setJobDescription]    = useState("");
   const [estimate,           setEstimate]          = useState<GeneratedEstimate | null>(null);
-  const [laborRate,          setLaborRate]         = useState(95);
+  const [laborRate,          setLaborRate]         = useState(150);
   const [markupPct,          setMarkupPct]         = useState(20);
   const [permitFee,          setPermitFee]         = useState(0);
   const [materialCostIndex,  setMaterialCostIndex] = useState(1.0);
@@ -493,7 +493,6 @@ export default function NewEstimatePage() {
                     { label: "Labor Rate",    value: laborRate,         set: setLaborRate,         suffix: "/hr",  note: "$/hr" },
                     { label: "Markup",        value: markupPct,         set: setMarkupPct,         suffix: "%",    note: "%" },
                     { label: "Permit Fee",    value: permitFee,         set: setPermitFee,         suffix: "$",    note: "$" },
-                    { label: "Material Index",value: materialCostIndex, set: setMaterialCostIndex, suffix: "×",    note: "1.0 = normal" },
                   ].map(({ label, value, set, suffix, note }) => (
                     <div key={label} style={{ display: "flex", gap: 8, alignItems: "center" }}>
                       <div>
@@ -510,11 +509,6 @@ export default function NewEstimatePage() {
                   ))}
                   <button type="button" onClick={saveDraft} style={{ ...btnSecondary, marginLeft: "auto" }}>💾 Save</button>
                 </div>
-                {materialCostIndex !== 1.0 && (
-                  <div style={{ marginTop: 10, fontSize: 12, color: "#7A5A00", background: C.goldLight, padding: "6px 10px", borderRadius: radius.sm, fontFamily: font.mono }}>
-                    Material cost index {materialCostIndex}× applied to all material line items.
-                  </div>
-                )}
               </div>
             )}
 
@@ -639,7 +633,6 @@ export default function NewEstimatePage() {
                     <div style={{ marginTop: 8, fontSize: 12, color: C.muted, fontFamily: font.mono, display: "flex", gap: 14, flexWrap: "wrap" }}>
                       <span>Markup {markupPct}%</span>
                       {estimate.sqft && totals.ratePerSqft && <span>{estimate.sqft.toLocaleString()} sq ft · ${totals.ratePerSqft.toFixed(2)}/sq ft</span>}
-                      {materialCostIndex !== 1.0 && <span>Material index {materialCostIndex}×</span>}
                     </div>
                   </div>
                 </div>

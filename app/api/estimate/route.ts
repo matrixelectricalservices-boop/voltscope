@@ -208,67 +208,106 @@ STRICT RULES:
 function buildAssemblyPrompt(): string {
   return `
 You are a licensed electrical estimating assistant with 20 years of field experience.
-You receive a whole-building job intent. Return a category-level assembly breakdown with contractor pricing.
+You receive a whole-building job intent. Return a REAL material list with actual items and quantities — NOT per-sqft categories.
 
 Return ONLY valid JSON — no markdown, no explanation.
 
 {
   "materials": [
     {
-      "item":      "category name (e.g. 'Service entrance & 200A main panel', 'Branch circuit rough-in wiring')",
+      "item":      "real item name (e.g. '200A main load center 40-space', 'NM-B 12/2 wire', '6\" canless wafer LED')",
       "qty":       number,
-      "unit":      "sqft|lot|ea",
+      "unit":      "ea|ft|lot",
       "unitCost":  number,
-      "category":  "equipment|wire|devices|consumables",
-      "notes":     "optional breakdown detail"
+      "category":  "equipment|wire|conduit|devices|boxes|fittings|consumables",
+      "notes":     "optional"
     }
   ],
   "labor": [
     {
-      "description": "phase description (e.g. 'Rough-in', 'Trim-out & devices', 'Panel hookup & testing')",
+      "description": "phase (e.g. 'Rough-in wiring', 'Trim-out & devices', 'Panel hookup & testing')",
       "hours":       number
     }
   ]
 }
 
-ASSEMBLY PRICING BY BUILDING TYPE:
+HOW TO CALCULATE QUANTITIES FROM SQFT:
 
-RESIDENTIAL NEW CONSTRUCTION (per sq ft, contractor cost before markup):
-  Service entrance & main panel (200A):  $0.40–0.55/sqft
-  Branch circuit rough-in wiring (NM-B): $1.05–1.35/sqft
-  Devices (outlets, switches):           $0.70–0.95/sqft
-  Lighting rough-in & fixtures:          $0.55–0.80/sqft
-  Appliance circuits (kitchen/laundry):  $0.40–0.60/sqft
-  GFCI/AFCI protection:                  $0.25–0.40/sqft
-  Consumables & misc:                    $0.30–0.45/sqft
-  Labor rough-in:                        0.012–0.016 hrs/sqft
-  Labor trim-out:                        0.008–0.012 hrs/sqft
+RESIDENTIAL (per 1000 sqft, scale proportionally):
+  Outlets:         1 per 150 sqft → qty = round(sqft / 150)
+  Switches:        1 per 300 sqft → qty = round(sqft / 300)
+  GFCI outlets:    round(sqft / 600) + 4 (bathrooms + kitchen)
+  Recessed lights: 1 per 50 sqft of living area → qty = round(sqft / 50)
+  Light switches/dimmers: 1 per 200 sqft → qty = round(sqft / 200)
+  NM-B 12/2 wire: sqft × 2.5 ft (accounts for all branch circuits)
+  NM-B 14/2 wire: sqft × 0.8 ft (lighting circuits)
+  Breakers 20A 1-pole: round(sqft / 200) (general circuits)
+  Breakers 15A 1-pole: round(sqft / 300) (lighting circuits)
+  1-gang boxes:    outlets + switches
+  Main panel (200A 40-space): 1
+  Ground rods: 2
+  Misc consumables: 1 lot
 
-WAREHOUSE / INDUSTRIAL (per sq ft, contractor cost):
-  Service entrance & panels (400A+):     $0.55–0.80/sqft
-  Branch circuit wiring (EMT + THHN):    $1.40–1.90/sqft
-  Lighting (LED high bay):               $0.80–1.20/sqft
-  Devices & disconnects:                 $0.35–0.55/sqft
-  Conduit & fittings:                    $0.55–0.80/sqft
-  Consumables & misc:                    $0.30–0.50/sqft
-  Labor rough-in:                        0.018–0.025 hrs/sqft
-  Labor trim-out & testing:              0.008–0.014 hrs/sqft
+WAREHOUSE (per 1000 sqft):
+  LED high bay fixtures: 1 per 200 sqft → qty = round(sqft / 200)
+  20A duplex outlets: 1 per 500 sqft + perimeter outlets
+  EMT 3/4" conduit: sqft × 1.8 ft
+  THHN #12 wire: sqft × 4 ft (accounts for all circuits)
+  Breakers 20A 1-pole: round(sqft / 400)
+  2-pole 60A breakers (equipment): round(sqft / 2000)
+  400A main panel (if >5000 sqft) or 200A panel: 1
+  Meter base: 1
+  Ground rods: 2
+  EMT connectors: round(conduit_ft / 10) × 2
+  EMT straps: round(conduit_ft / 6)
+  Misc consumables: 1 lot
 
-COMMERCIAL / OFFICE (per sq ft, contractor cost):
-  Service entrance & panels:             $0.65–0.90/sqft
-  Branch circuit wiring (MC or EMT):     $1.60–2.20/sqft
-  Lighting & controls:                   $1.00–1.60/sqft
-  Devices & data rough-in:               $0.60–0.90/sqft
-  Conduit & fittings:                    $0.65–0.95/sqft
-  Consumables & misc:                    $0.40–0.60/sqft
-  Labor:                                 0.025–0.035 hrs/sqft
+COMMERCIAL / OFFICE (per 1000 sqft):
+  Duplex outlets: 1 per 60 sqft → qty = round(sqft / 60)
+  GFCI outlets: round(sqft / 400) + 6
+  Single-pole switches: round(sqft / 200)
+  LED panel lights or recessed: 1 per 80 sqft
+  MC cable 12/2: sqft × 3 ft
+  Breakers 20A 1-pole: round(sqft / 150)
+  200A panel or larger: 1
+  Meter base: 1
+  Ground rods: 2
+  Misc consumables: 1 lot
+
+PRICING — contractor (supply house) cost, NOT retail:
+  200A load center (40-sp):  $220–280 ea
+  TR 20A duplex outlet:      $3–5 ea
+  GFCI 20A receptacle:       $14–18 ea
+  Single-pole switch:        $2–4 ea
+  LED dimmer:                $22–32 ea
+  6" canless wafer LED:      $16–22 ea
+  LED high bay fixture:      $120–180 ea
+  LED 2x4 troffer:           $55–85 ea
+  NM-B 12/2:                 $0.75–0.90/ft
+  NM-B 14/2:                 $0.55–0.70/ft
+  MC cable 12/2:             $1.20–1.50/ft
+  3/4" EMT conduit:          $0.70–0.95/ft
+  THHN #12:                  $0.18/ft
+  1-gang new work box:       $0.90–1.20 ea
+  Meter base 200A:           $130–175 ea
+  Ground rod 5/8"×8ft:       $18–26 ea
+  Misc consumables (lot):    $150–300 lot
+
+LABOR HOURS:
+  Residential rough-in:  sqft × 0.014 hrs
+  Residential trim-out:  sqft × 0.010 hrs
+  Warehouse rough-in:    sqft × 0.022 hrs
+  Warehouse trim-out:    sqft × 0.010 hrs
+  Commercial rough-in:   sqft × 0.030 hrs
+  Commercial trim-out:   sqft × 0.015 hrs
 
 RULES:
-  1. Use midpoint of ranges for unitCost.
-  2. qty = sqft for per-sqft items. qty = 1 for lot items.
-  3. If sqft = 0, use 2000 for residential, 4000 for warehouse, 3000 for commercial and note assumption.
-  4. Return 6–9 material categories and 2–4 labor phases.
-  5. Labor hours = sqft × rate from table above (use midpoint).
+  1. Use REAL item names a customer can understand — not category labels like "Branch circuit wiring".
+  2. Use midpoint of price ranges.
+  3. Calculate actual quantities using the formulas above scaled to the actual sqft.
+  4. If sqft = 0, use 2000 for residential, 4000 for warehouse, 3000 for commercial.
+  5. Return 10–18 real material items and 2–4 labor phases.
+  6. Do NOT use "sqft" as a unit — use ea, ft, or lot only.
 `.trim();
 }
 
@@ -346,7 +385,7 @@ export async function POST(req: Request) {
     const description       = (body.description ?? "").trim();
     if (!description) return Response.json({ error: "Missing description" }, { status: 400 });
 
-    const laborRate         = typeof body.laborRate         === "number" ? body.laborRate         : 95;
+    const laborRate         = typeof body.laborRate         === "number" ? body.laborRate         : 150;
     const markupPct         = typeof body.markupPct         === "number" ? body.markupPct         : 20;
     const permitFee         = typeof body.permitFee         === "number" ? body.permitFee         : 0;
     const materialCostIndex = typeof body.materialCostIndex === "number" ? body.materialCostIndex : 1.0;
