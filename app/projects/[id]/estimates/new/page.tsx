@@ -305,7 +305,7 @@ export default function NewEstimatePage() {
     if (projectId) { localStorage.removeItem(draftKey); setUiState({ isSaved: false }); }
   }
 
-  function handleDownloadPdf() {
+  function handleDownloadPdf(mode: "business" | "proposal") {
     if (!estimate || !totals) return;
     generateEstimatePdf({
       companyName:    "Voltscope Electric",
@@ -315,6 +315,7 @@ export default function NewEstimatePage() {
       jobType:        project?.jobType,
       jobDescription: jobDescription,
       estimateDate:   new Date().toLocaleDateString("en-US"),
+      mode,
       summary:        estimate.summary,
       assumptions:    estimate.assumptions,
       scopeType:      estimate.scopeType,
@@ -415,11 +416,24 @@ export default function NewEstimatePage() {
                 )}
               </div>
             </div>
-            <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               {estimate && totals && (
-                <button type="button" onClick={handleDownloadPdf} style={{ ...btnSecondary, background: `linear-gradient(160deg, ${C.teal} 0%, ${C.tealDark} 100%)`, color: C.white, border: `1.5px solid ${C.tealDark}` }}>
-                  📄 Download PDF
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadPdf("proposal")}
+                    style={{ ...btnSecondary, background: `linear-gradient(160deg, ${C.teal} 0%, ${C.tealDark} 100%)`, color: C.white, border: `1.5px solid ${C.tealDark}` }}
+                  >
+                    📄 Customer Proposal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadPdf("business")}
+                    style={btnSecondary}
+                  >
+                    🗂 Business Copy
+                  </button>
+                </>
               )}
               <button type="button" onClick={saveDraft} style={btnPrimary}>💾 Save Draft</button>
             </div>
