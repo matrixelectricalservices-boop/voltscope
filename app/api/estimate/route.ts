@@ -180,13 +180,29 @@ EMT RUNS:
 
 LABOR HOURS (baseline, adjust for difficulty/access):
   EV charger install (standard):    3.5–5 hrs
-  Per additional outlet:            0.75–1.5 hrs
-  Per light fixture:                0.5–1 hr
-  Panel/breaker work:               2–4 hrs
   Service upgrade 200A:             6–10 hrs
+  Panel/breaker work:               2–4 hrs
   Per 10ft conduit run:             0.5 hrs
-  Finished wall access adder:       +25%
-  Attic/crawlspace adder:           +20%
+
+  DEVICE INSTALL — tiered bulk rates (includes box, wire termination, device, plate):
+    1–5 devices:    0.50–0.75 hrs each
+    6–15 devices:   0.25–0.40 hrs each
+    16–30 devices:  0.15–0.25 hrs each
+    31+ devices:    0.10–0.18 hrs each
+  Use the MIDPOINT of the bracket. Apply to ALL devices when qty hits that tier.
+  Example: 50 receptacles = 50 × 0.14 = 7 hrs
+  Example: 20 switches    = 20 × 0.20 = 4 hrs
+  Example: 50 receptacles + 20 switches = 7 + 4 = 11 hrs total — NOT 96, NOT 50+
+
+  LIGHTING fixtures:
+    1–10 fixtures:  0.40–0.60 hrs each
+    11–30 fixtures: 0.25–0.35 hrs each
+    31+ fixtures:   0.15–0.22 hrs each
+
+  ACCESS MULTIPLIER (apply to total):
+    Open/new construction: ×1.0
+    Attic or crawlspace:   ×1.2
+    Finished walls:        ×1.35
 
 ALWAYS INCLUDE:
   misc consumables (lot, $20–35) — every job
