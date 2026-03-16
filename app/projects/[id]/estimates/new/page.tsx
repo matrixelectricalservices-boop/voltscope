@@ -262,6 +262,7 @@ export default function NewEstimatePage() {
   const draftKey  = `voltscope:draft-estimate:${projectId ?? "unknown"}`;
 
   const [uiState,           setUiState]           = useState<UIState>({ isSaved: false });
+  const [savedConfirm,      setSavedConfirm]      = useState(false);
   const [jobDescription,    setJobDescription]    = useState("");
   const [estimate,          setEstimate]          = useState<GeneratedEstimate | null>(null);
   const [laborRate,         setLaborRate]         = useState(150);
@@ -329,6 +330,8 @@ export default function NewEstimatePage() {
     };
     localStorage.setItem(draftKey, JSON.stringify(payload));
     setUiState({ isSaved: true, lastSavedAt: payload.savedAt });
+    setSavedConfirm(true);
+    setTimeout(() => setSavedConfirm(false), 2000);
   }
 
   async function handleGenerate() {
@@ -861,8 +864,8 @@ export default function NewEstimatePage() {
                 </button>
               </>
             )}
-            <button type="button" onClick={saveDraft} style={btnPrimary}>
-              Save Draft
+            <button type="button" onClick={saveDraft} style={{ ...btnPrimary, background: savedConfirm ? `linear-gradient(135deg, ${DS.green} 0%, #047857 100%)` : `linear-gradient(135deg, ${DS.blue} 0%, ${DS.blueDark} 100%)`, boxShadow: savedConfirm ? "0 4px 14px rgba(5,150,105,0.35)" : DS.blueShadow, transition: "background 0.3s, box-shadow 0.3s" }}>
+              {savedConfirm ? "✓ Saved" : "Save"}
             </button>
           </div>
         </nav>
@@ -999,7 +1002,9 @@ export default function NewEstimatePage() {
                     </div>
                   ))}
                   <div style={{ marginLeft: "auto" }}>
-                    <button type="button" onClick={saveDraft} style={btnGhost}>Save Settings</button>
+                    <button type="button" onClick={saveDraft} style={btnGhost}>
+                      {savedConfirm ? "✓ Saved" : "Save"}
+                    </button>
                   </div>
                 </div>
               </div>
