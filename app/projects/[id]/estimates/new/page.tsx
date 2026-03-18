@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import { getProjects } from "../../../../lib/projectStore";
 import { generateEstimatePdf } from "../../../../lib/generateEstimatePdf";
-
+import { loadProfile } from "../../../../lib/userProfile";
 // =============================================================================
 // VOLTSCOPE DESIGN SYSTEM — copy these tokens to any new page
 // =============================================================================
@@ -385,34 +385,35 @@ export default function NewEstimatePage() {
   }
 
   function handleDownloadPdf(mode: "business" | "proposal") {
-    if (!estimate || !totals) return;
-    generateEstimatePdf({
-      companyName:    "Voltscope Electric",
-      companyPhone:   "(555) 000-0000",
-      companyEmail:   "estimates@voltscope.com",
-      customerName:   project?.customerName ?? "Customer",
-      jobType:        project?.jobType,
-      jobDescription: jobDescription,
-      estimateDate:   new Date().toLocaleDateString("en-US"),
-      mode,
-      summary:        estimate.summary,
-      assumptions:    estimate.assumptions,
-      scopeType:      estimate.scopeType,
-      sqft:           estimate.sqft,
-      materials:      materialLines,
-      labor:          estimate.labor.map((l) => ({ ...l, rate: laborRate, total: l.hours * laborRate })),
-      laborHours:     estimate.laborHours,
-      laborRate,
-      materialTotal:  totals.materialTotal,
-      laborTotal:     totals.laborTotal,
-      subtotal:       totals.subtotal,
-      markup:         totals.markup,
-      markupPct,
-      permitFee,
-      finalTotal:     totals.finalTotal,
-      ratePerSqft:    totals.ratePerSqft,
-    });
-  }
+  if (!estimate || !totals) return;
+  const profile = loadProfile();
+  generateEstimatePdf({
+    companyName:    profile.company || "Your Company",
+    companyPhone:   profile.phone   || "",
+    companyEmail:   profile.email   || "",
+    customerName:   project?.customerName ?? "Customer",
+    jobType:        project?.jobType,
+    jobDescription: jobDescription,
+    estimateDate:   new Date().toLocaleDateString("en-US"),
+    mode,
+    summary:        estimate.summary,
+    assumptions:    estimate.assumptions,
+    scopeType:      estimate.scopeType,
+    sqft:           estimate.sqft,
+    materials:      materialLines,
+    labor:          estimate.labor.map((l) => ({ ...l, rate: laborRate, total: l.hours * laborRate })),
+    laborHours:     estimate.laborHours,
+    laborRate,
+    materialTotal:  totals.materialTotal,
+    laborTotal:     totals.laborTotal,
+    subtotal:       totals.subtotal,
+    markup:         totals.markup,
+    markupPct,
+    permitFee,
+    finalTotal:     totals.finalTotal,
+    ratePerSqft:    totals.ratePerSqft,
+  });
+}
 
   const canGenerate = jobDescription.trim().length > 0 && genState.status !== "loading" && genState.status !== "ready";
   const PREVIEW     = 6;
