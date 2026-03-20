@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { getProject } from "@/app/lib/projectStore";
+import { getProject, type Project } from "@/app/lib/projectStore";
 import { getEstimatesForProject, deleteEstimate, type SavedEstimate } from "@/app/lib/estimateStore";
 
 const DS = {
@@ -19,7 +19,6 @@ const DS = {
   blueLight:    "#EFF6FF",
   blueMid:      "#DBEAFE",
   amber:        "#D97706",
-  amberLight:   "#FFFBEB",
   green:        "#059669",
   greenLight:   "#ECFDF5",
   red:          "#DC2626",
@@ -56,30 +55,58 @@ function relativeTime(iso: string): string {
 }
 
 export default function ProjectDetailPage() {
-  const params  = useParams<{ id: string }>();
-  const project = getProject(params?.id ?? "");
+  const params = useParams<{ id: string }>();
+  const id     = params?.id ?? "";
+
+  const [project,       setProject]       = useState<Project | null>(null);
   const [estimates,     setEstimates]     = useState<SavedEstimate[]>([]);
+  const [loading,       setLoading]       = useState(true);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
+  // Load project + estimates from Supabase
   useEffect(() => {
-    if (params?.id) setEstimates(getEstimatesForProject(params.id));
-  }, [params?.id]);
+    if (!id) return;
+    async function load() {
+      setLoading(true);
+      const [proj, ests] = await Promise.all([
+        getProject(id),
+        getEstimatesForProject(id),
+      ]);
+      setProject(proj);
+      setEstimates(ests);
+      setLoading(false);
+    }
+    load();
+  }, [id]);
 
-  function handleDelete(id: string) {
-    deleteEstimate(id);
-    setEstimates(getEstimatesForProject(params?.id ?? ""));
+  async function handleDelete(estimateId: string) {
+    await deleteEstimate(estimateId);
+    setEstimates(await getEstimatesForProject(id));
     setDeleteConfirm(null);
   }
 
+  // Loading state
+  if (loading) {
+    return (
+      <>
+        <style>{`@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800&family=Inter:wght@400;500&display=swap'); *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; } body { background: #F4F6F9; }`}</style>
+        <div style={{ minHeight: "100vh", background: DS.pageBg, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FONT.body }}>
+          <div style={{ fontSize: 13, color: DS.text3 }}>Loading…</div>
+        </div>
+      </>
+    );
+  }
+
+  // Not found
   if (!project) {
     return (
       <>
-        <style>{`@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800&family=Inter:wght@400;500&display=swap'); *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; } body { background: ${DS.pageBg}; }`}</style>
+        <style>{`@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800&family=Inter:wght@400;500&display=swap'); *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; } body { background: #F4F6F9; }`}</style>
         <div style={{ minHeight: "100vh", background: DS.pageBg, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FONT.body }}>
           <div style={{ textAlign: "center" }}>
             <div style={{ fontSize: 40, marginBottom: 16 }}>📋</div>
-            <div style={{ fontFamily: FONT.head, fontWeight: 800, fontSize: 20, color: DS.text1, marginBottom: 8 }}>Project not found</div>
-            <div style={{ fontSize: 14, color: DS.text3, marginBottom: 24 }}>This project may have been deleted.</div>
+            <div style={{ fontFamily: FONT.head, fontWeight: 800, fontSize: 20, color: DS.text1, marginBottom: 8 }}>Customer not found</div>
+            <div style={{ fontSize: 14, color: DS.text3, marginBottom: 24 }}>This customer may have been deleted.</div>
             <Link href="/projects" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 18px", borderRadius: R.md, background: `linear-gradient(135deg, ${DS.blue} 0%, ${DS.blueDark} 100%)`, color: "#fff", fontFamily: FONT.head, fontWeight: 700, fontSize: 13, textDecoration: "none" }}>← Back to Customers</Link>
           </div>
         </div>

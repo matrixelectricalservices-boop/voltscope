@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-
+import { supabase } from "./lib/supabase";
 // =============================================================================
 // VOLTSCOPE DESIGN SYSTEM — same tokens as estimate page
 // =============================================================================
@@ -81,39 +81,44 @@ export default function HomePage() {
     return ok;
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setGlobalError("");
-    if (!validate()) return;
-    setLoading(true);
-    try {
-      const endpoint = tab === "login" ? "/api/auth/login" : "/api/auth/register";
-      const body: Record<string, string> = { email: email.value, password: password.value };
-      if (tab === "signup") body.name = name.value;
+  // Replace your handleSubmit function in app/page.tsx with this version.
+// It sets the Supabase session client-side after login so auth persists.
+// Also add this import at the top of app/page.tsx:
+//   import { supabase } from "./lib/supabase";
 
-      const res  = await fetch(endpoint, {
+async function handleSubmit(e: React.FormEvent) {
+  e.preventDefault();
+  setGlobalError("");
+  if (!validate()) return;
+  setLoading(true);
+
+  try {
+    if (tab === "signup") {
+      // Register via API route
+      const res  = await fetch("/api/auth/register", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify(body),
+        body:    JSON.stringify({ name: name.value, email: email.value, password: password.value }),
       });
       const data = await res.json().catch(() => ({}));
+      if (!res.ok) { setGlobalError(data?.error ?? "Could not create account."); return; }
+      setSuccess(true);
 
-      if (!res.ok) {
-        setGlobalError(data?.error ?? (tab === "login" ? "Invalid email or password." : "Could not create account."));
-        return;
-      }
-
-      if (tab === "signup") {
-        setSuccess(true);
-      } else {
-        window.location.href = "/dashboard";
-      }
-    } catch {
-      setGlobalError("Network error — please try again.");
-    } finally {
-      setLoading(false);
+    } else {
+      // Sign in directly with Supabase client (sets session cookie automatically)
+      const { error } = await supabase.auth.signInWithPassword({
+        email:    email.value,
+        password: password.value,
+      });
+      if (error) { setGlobalError("Invalid email or password."); return; }
+      window.location.href = "/dashboard";
     }
+  } catch {
+    setGlobalError("Network error — please try again.");
+  } finally {
+    setLoading(false);
   }
+}
 
   // ==========================================================================
   // Render

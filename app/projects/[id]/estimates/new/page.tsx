@@ -4,20 +4,16 @@ import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
-import { getProjects } from "../../../../lib/projectStore";
+import { getProjects, type Project } from "../../../../lib/projectStore";
 import { generateEstimatePdf } from "../../../../lib/generateEstimatePdf";
 import { loadProfile } from "../../../../lib/userProfile";
 import { saveEstimate, getEstimate } from "../../../../lib/estimateStore";
 
-// =============================================================================
-// VOLTSCOPE DESIGN SYSTEM
-// =============================================================================
 const DS = {
   shell:       "#0B0F1A",
   shellBorder: "rgba(255,255,255,0.07)",
   pageBg:      "#F4F6F9",
   card:        "#FFFFFF",
-  cardHover:   "#FAFBFC",
   text1:       "#0F172A",
   text2:       "#475569",
   text3:       "#94A3B8",
@@ -46,10 +42,6 @@ const FONT = {
 } as const;
 
 const R = { xs: 6, sm: 8, md: 10, lg: 12, xl: 16 } as const;
-
-// =============================================================================
-// Types
-// =============================================================================
 
 type MaterialLine = {
   item:      string;
@@ -93,26 +85,20 @@ type Draft = {
 
 type UIState = { isSaved: boolean; lastSavedAt?: string };
 
-// =============================================================================
-// Helpers
-// =============================================================================
-
 function autoTitle(summary: string) {
   const s = summary.toLowerCase();
-  if (s.includes("warehouse"))                               return "Warehouse Electrical";
-  if (s.includes("new home") || s.includes("new construction")) return "New Construction";
-  if (s.includes("commercial") || s.includes("office"))     return "Commercial Buildout";
-  if (s.includes("ev") || s.includes("charger"))            return "EV Charger Install";
-  if (s.includes("panel") || s.includes("service"))         return "Panel / Service Work";
-  if (s.includes("receptacle") || s.includes("outlet"))     return "Outlet Installation";
-  if (s.includes("light") || s.includes("fixture"))         return "Lighting";
+  if (s.includes("warehouse"))                                           return "Warehouse Electrical";
+  if (s.includes("new home") || s.includes("new construction"))         return "New Construction";
+  if (s.includes("commercial") || s.includes("office"))                 return "Commercial Buildout";
+  if (s.includes("ev") || s.includes("charger"))                        return "EV Charger Install";
+  if (s.includes("panel") || s.includes("service"))                     return "Panel / Service Work";
+  if (s.includes("receptacle") || s.includes("outlet"))                 return "Outlet Installation";
+  if (s.includes("light") || s.includes("fixture"))                     return "Lighting";
   return "Electrical Estimate";
 }
 
 function r2(n: number) { return Math.round(n * 100) / 100; }
-function fmt(n: number) {
-  return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
+function fmt(n: number) { return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
 const CATEGORY_ORDER = ["equipment","wire","conduit","devices","boxes","fittings","consumables"];
 const CATEGORY_LABEL: Record<string, string> = {
@@ -125,101 +111,51 @@ const CATEGORY_LABEL: Record<string, string> = {
   consumables: "Consumables",
 };
 
-// =============================================================================
-// Shared styles
-// =============================================================================
-
 const btnPrimary: CSSProperties = {
-  display:       "inline-flex",
-  alignItems:    "center",
-  gap:           6,
-  padding:       "9px 18px",
-  borderRadius:  R.md,
-  border:        "none",
-  background:    `linear-gradient(135deg, ${DS.blue} 0%, ${DS.blueDark} 100%)`,
-  color:         "#fff",
-  fontFamily:    FONT.head,
-  fontWeight:    600,
-  fontSize:      13,
-  letterSpacing: 0.2,
-  cursor:        "pointer",
-  boxShadow:     DS.blueShadow,
-  whiteSpace:    "nowrap",
-  transition:    "opacity 0.15s",
+  display: "inline-flex", alignItems: "center", gap: 6,
+  padding: "9px 18px", borderRadius: R.md, border: "none",
+  background: `linear-gradient(135deg, ${DS.blue} 0%, ${DS.blueDark} 100%)`,
+  color: "#fff", fontFamily: FONT.head, fontWeight: 600, fontSize: 13,
+  letterSpacing: 0.2, cursor: "pointer", boxShadow: DS.blueShadow,
+  whiteSpace: "nowrap", transition: "opacity 0.15s",
 };
 
 const btnSecondary: CSSProperties = {
-  display:      "inline-flex",
-  alignItems:   "center",
-  gap:          6,
-  padding:      "9px 16px",
-  borderRadius: R.md,
-  border:       `1px solid ${DS.border}`,
-  background:   DS.card,
-  color:        DS.text1,
-  fontFamily:   FONT.head,
-  fontWeight:   600,
-  fontSize:     13,
-  cursor:       "pointer",
-  boxShadow:    DS.cardShadow,
-  whiteSpace:   "nowrap",
-  transition:   "background 0.15s",
+  display: "inline-flex", alignItems: "center", gap: 6,
+  padding: "9px 16px", borderRadius: R.md, border: `1px solid ${DS.border}`,
+  background: DS.card, color: DS.text1, fontFamily: FONT.head, fontWeight: 600,
+  fontSize: 13, cursor: "pointer", boxShadow: DS.cardShadow,
+  whiteSpace: "nowrap", transition: "background 0.15s",
 };
 
 const btnGhost: CSSProperties = {
-  display:      "inline-flex",
-  alignItems:   "center",
-  gap:          5,
-  padding:      "6px 12px",
-  borderRadius: R.sm,
-  border:       `1px solid ${DS.border}`,
-  background:   "transparent",
-  color:        DS.text2,
-  fontFamily:   FONT.body,
-  fontWeight:   500,
-  fontSize:     12,
-  cursor:       "pointer",
-  whiteSpace:   "nowrap",
+  display: "inline-flex", alignItems: "center", gap: 5,
+  padding: "6px 12px", borderRadius: R.sm, border: `1px solid ${DS.border}`,
+  background: "transparent", color: DS.text2, fontFamily: FONT.body,
+  fontWeight: 500, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap",
 };
 
 const inputStyle: CSSProperties = {
-  width:        "100%",
-  padding:      "11px 14px",
-  borderRadius: R.md,
-  border:       `1px solid ${DS.border}`,
-  outline:      "none",
-  fontFamily:   FONT.body,
-  fontSize:     14,
-  lineHeight:   1.55,
-  color:        DS.text1,
-  background:   DS.card,
-  resize:       "vertical",
+  width: "100%", padding: "11px 14px", borderRadius: R.md,
+  border: `1px solid ${DS.border}`, outline: "none",
+  fontFamily: FONT.body, fontSize: 14, lineHeight: 1.55,
+  color: DS.text1, background: DS.card, resize: "vertical",
 };
 
 const miniInput: CSSProperties = {
-  width:        90,
-  padding:      "7px 10px",
-  borderRadius: R.sm,
-  border:       `1px solid ${DS.border}`,
-  outline:      "none",
-  fontFamily:   FONT.mono,
-  fontSize:     13,
-  color:        DS.text1,
-  background:   DS.card,
-  textAlign:    "right",
+  width: 90, padding: "7px 10px", borderRadius: R.sm,
+  border: `1px solid ${DS.border}`, outline: "none",
+  fontFamily: FONT.mono, fontSize: 13, color: DS.text1,
+  background: DS.card, textAlign: "right",
 };
-
-// =============================================================================
-// Component
-// =============================================================================
 
 export default function NewEstimatePage() {
   const params       = useParams<{ id: string }>();
   const searchParams = useSearchParams();
   const projectId    = params?.id;
-  const project      = getProjects().find((p) => p.id === projectId);
   const draftKey     = `voltscope:draft-estimate:${projectId ?? "unknown"}`;
 
+  const [project,           setProject]          = useState<Project | null>(null);
   const [uiState,           setUiState]          = useState<UIState>({ isSaved: false });
   const [savedConfirm,      setSavedConfirm]     = useState(false);
   const [jobDescription,    setJobDescription]   = useState("");
@@ -234,6 +170,13 @@ export default function NewEstimatePage() {
     msg?: string;
   }>({ status: "idle" });
   const [progress, setProgress] = useState(0);
+
+  // ── Load project from Supabase ──
+  useEffect(() => {
+    if (projectId) {
+      getProjects().then((all) => setProject(all.find((p) => p.id === projectId) ?? null));
+    }
+  }, [projectId]);
 
   // ── Restore draft from localStorage ──
   useEffect(() => {
@@ -252,28 +195,29 @@ export default function NewEstimatePage() {
     } catch { /* ignore */ }
   }, [projectId, draftKey]);
 
-  // ── Load saved estimate from history if ?load=id is in the URL ──
+  // ── Load saved estimate from ?load=id ──
   useEffect(() => {
     const loadId = searchParams?.get("load");
     if (!loadId) return;
-    const saved = getEstimate(loadId);
-    if (!saved) return;
-    setEstimate({
-      generatedAt:  saved.savedAt,
-      summary:      saved.snapshot.summary,
-      assumptions:  saved.snapshot.assumptions,
-      scopeType:    saved.snapshot.scopeType,
-      materials:    saved.snapshot.materials,
-      labor:        saved.snapshot.labor,
-      laborHours:   saved.snapshot.laborHours,
-      sqft:         saved.snapshot.sqft,
-      ratePerSqft:  saved.snapshot.ratePerSqft,
+    getEstimate(loadId).then((saved) => {
+      if (!saved) return;
+      setEstimate({
+        generatedAt:  saved.savedAt,
+        summary:      saved.snapshot.summary,
+        assumptions:  saved.snapshot.assumptions,
+        scopeType:    saved.snapshot.scopeType,
+        materials:    saved.snapshot.materials,
+        labor:        saved.snapshot.labor,
+        laborHours:   saved.snapshot.laborHours,
+        sqft:         saved.snapshot.sqft,
+        ratePerSqft:  saved.snapshot.ratePerSqft,
+      });
+      setLaborRate(saved.snapshot.laborRate);
+      setMarkupPct(saved.snapshot.markupPct);
+      setPermitFee(saved.snapshot.permitFee);
+      setJobDescription(saved.description);
+      setGenState({ status: "ready" });
     });
-    setLaborRate(saved.snapshot.laborRate);
-    setMarkupPct(saved.snapshot.markupPct);
-    setPermitFee(saved.snapshot.permitFee);
-    setJobDescription(saved.description);
-    setGenState({ status: "ready" });
   }, [searchParams]);
 
   // ── Progress bar ──
@@ -316,11 +260,9 @@ export default function NewEstimatePage() {
     return groups;
   }, [materialLines]);
 
-  // ── Save (draft + history) ──
+  // ── Save ──
   function saveDraft() {
     if (!projectId) return;
-
-    // Save draft to localStorage
     const payload: Draft = {
       savedAt:        new Date().toISOString(),
       jobDescription: jobDescription.trim(),
@@ -331,8 +273,6 @@ export default function NewEstimatePage() {
     setUiState({ isSaved: true, lastSavedAt: payload.savedAt });
     setSavedConfirm(true);
     setTimeout(() => setSavedConfirm(false), 2000);
-
-    // Also save to estimate history
     if (estimate && totals) {
       saveEstimate(projectId, jobDescription.trim(), {
         summary:      estimate.summary,
@@ -343,9 +283,7 @@ export default function NewEstimatePage() {
         laborHours:   estimate.laborHours,
         sqft:         estimate.sqft,
         ratePerSqft:  totals.ratePerSqft,
-        laborRate,
-        markupPct,
-        permitFee,
+        laborRate, markupPct, permitFee,
       });
     }
   }
@@ -358,48 +296,35 @@ export default function NewEstimatePage() {
     const controller = new AbortController();
     const timeoutId  = window.setTimeout(() => controller.abort(), 55_000);
     try {
-      const r = await fetch("/api/estimate", {
-        method:  "POST",
+      const res = await fetch("/api/estimate", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ description: text, laborRate, markupPct, permitFee, materialCostIndex }),
-        signal:  controller.signal,
+        body: JSON.stringify({ description: text, laborRate, markupPct, permitFee, materialCostIndex }),
+        signal: controller.signal,
       });
-      const data = await r.json().catch(() => null);
-      if (!r.ok || !data) {
-        setGenState({ status: "error", msg: data?.error ?? "API error — please try again." });
-        return;
-      }
-
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data) { setGenState({ status: "error", msg: data?.error ?? "API error — please try again." }); return; }
       const generated: GeneratedEstimate = {
-        generatedAt:        new Date().toISOString(),
-        summary:            data.summary     ?? "Electrical scope estimate.",
-        assumptions:        Array.isArray(data.assumptions) ? data.assumptions : [],
-        scopeType:          data.scopeType   === "assembly" ? "assembly" : "line_item",
-        materials:          Array.isArray(data.materials)  ? data.materials  : [],
-        labor:              Array.isArray(data.labor)      ? data.labor      : [],
-        laborHours:         typeof data.laborHours === "number" ? data.laborHours : 0,
-        isNewConstruction:  data.isNewConstruction === true,
-        sqft:               typeof data.sqft === "number" && data.sqft > 0 ? data.sqft : undefined,
-        ratePerSqft:        typeof data.ratePerSqft === "number" ? data.ratePerSqft : undefined,
+        generatedAt:       new Date().toISOString(),
+        summary:           data.summary    ?? "Electrical scope estimate.",
+        assumptions:       Array.isArray(data.assumptions) ? data.assumptions : [],
+        scopeType:         data.scopeType  === "assembly" ? "assembly" : "line_item",
+        materials:         Array.isArray(data.materials)  ? data.materials  : [],
+        labor:             Array.isArray(data.labor)      ? data.labor      : [],
+        laborHours:        typeof data.laborHours === "number" ? data.laborHours : 0,
+        isNewConstruction: data.isNewConstruction === true,
+        sqft:              typeof data.sqft === "number" && data.sqft > 0 ? data.sqft : undefined,
+        ratePerSqft:       typeof data.ratePerSqft === "number" ? data.ratePerSqft : undefined,
       };
-
       setEstimate(generated);
       setProgress(100);
       setShowAllMaterials(false);
       setGenState({ status: "ready" });
-
-      // Save draft to localStorage only (no auto-save to history — use Save button)
       if (projectId) {
-        const payload: Draft = {
-          savedAt: new Date().toISOString(),
-          jobDescription: text,
-          estimate: generated,
-          laborRate, markupPct, permitFee, materialCostIndex,
-        };
+        const payload: Draft = { savedAt: new Date().toISOString(), jobDescription: text, estimate: generated, laborRate, markupPct, permitFee, materialCostIndex };
         localStorage.setItem(draftKey, JSON.stringify(payload));
         setUiState({ isSaved: true, lastSavedAt: payload.savedAt });
       }
-
     } catch (e: unknown) {
       const isTimeout = e instanceof Error && e.name === "AbortError";
       setGenState({ status: "error", msg: isTimeout ? "Request timed out." : "Request failed — please try again." });
@@ -413,13 +338,12 @@ export default function NewEstimatePage() {
     setJobDescription(""); setEstimate(null); setProgress(0);
     setGenState({ status: "idle" }); setShowAllMaterials(false);
     if (projectId) { localStorage.removeItem(draftKey); setUiState({ isSaved: false }); }
-    // Remove ?load= from URL so the useEffect doesn't reload the old estimate
     const url = new URL(window.location.href);
     url.searchParams.delete("load");
     window.history.replaceState({}, "", url.toString());
   }
 
-  // ── Download PDF ──
+  // ── PDF ──
   function handleDownloadPdf(mode: "business" | "proposal") {
     if (!estimate || !totals) return;
     const profile = loadProfile();
@@ -429,25 +353,14 @@ export default function NewEstimatePage() {
       companyEmail:   profile.email   || "",
       customerName:   project?.customerName ?? "Customer",
       jobType:        project?.jobType,
-      jobDescription: jobDescription,
-      estimateDate:   new Date().toLocaleDateString("en-US"),
-      mode,
-      summary:        estimate.summary,
-      assumptions:    estimate.assumptions,
-      scopeType:      estimate.scopeType,
-      sqft:           estimate.sqft,
-      materials:      materialLines,
+      jobDescription, estimateDate: new Date().toLocaleDateString("en-US"), mode,
+      summary:        estimate.summary, assumptions: estimate.assumptions,
+      scopeType:      estimate.scopeType, sqft: estimate.sqft, materials: materialLines,
       labor:          estimate.labor.map((l) => ({ ...l, rate: laborRate, total: l.hours * laborRate })),
-      laborHours:     estimate.laborHours,
-      laborRate,
-      materialTotal:  totals.materialTotal,
-      laborTotal:     totals.laborTotal,
-      subtotal:       totals.subtotal,
-      markup:         totals.markup,
-      markupPct,
-      permitFee,
-      finalTotal:     totals.finalTotal,
-      ratePerSqft:    totals.ratePerSqft,
+      laborHours:     estimate.laborHours, laborRate,
+      materialTotal:  totals.materialTotal, laborTotal: totals.laborTotal,
+      subtotal:       totals.subtotal, markup: totals.markup, markupPct, permitFee,
+      finalTotal:     totals.finalTotal, ratePerSqft: totals.ratePerSqft,
     });
   }
 
@@ -457,9 +370,6 @@ export default function NewEstimatePage() {
   const hiddenCount = Math.max(0, materialLines.length - PREVIEW);
   const isAssembly  = estimate?.scopeType === "assembly";
 
-  // ==========================================================================
-  // Render
-  // ==========================================================================
   return (
     <>
       <style>{`
@@ -485,10 +395,10 @@ export default function NewEstimatePage() {
         .vs-card-title { font-family: ${FONT.head}; font-weight: 700; font-size: 14px; color: ${DS.text1}; display: flex; align-items: center; gap: 8px; }
         .vs-card-body { padding: 20px; }
         .vs-badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 20px; font-family: ${FONT.head}; font-weight: 600; font-size: 11px; letter-spacing: 0.3px; white-space: nowrap; }
-        .vs-badge-blue  { background: ${DS.blueMid};   color: ${DS.blue};  border: 1px solid ${DS.blueLight}; }
+        .vs-badge-blue  { background: ${DS.blueMid};    color: ${DS.blue};  border: 1px solid ${DS.blueLight}; }
         .vs-badge-amber { background: ${DS.amberLight}; color: ${DS.amber}; border: 1px solid ${DS.amberMid}; }
         .vs-badge-green { background: ${DS.greenLight}; color: ${DS.green}; border: 1px solid #A7F3D0; }
-        .vs-badge-gray  { background: ${DS.divider}; color: ${DS.text3}; border: 1px solid ${DS.border}; }
+        .vs-badge-gray  { background: ${DS.divider};    color: ${DS.text3}; border: 1px solid ${DS.border}; }
         .vs-table { width: 100%; border-collapse: collapse; }
         .vs-table th { padding: 10px 16px; background: ${DS.divider}; font-family: ${FONT.head}; font-weight: 700; font-size: 11px; letter-spacing: 0.6px; text-transform: uppercase; color: ${DS.text3}; text-align: left; border-bottom: 1px solid ${DS.border}; white-space: nowrap; }
         .vs-table th.right { text-align: right; }
@@ -531,8 +441,6 @@ export default function NewEstimatePage() {
       `}</style>
 
       <div className="vs-page">
-
-        {/* ── Topbar ── */}
         <nav className="vs-topbar">
           <Link href="/" className="vs-topbar-logo">
             <span className="vs-topbar-logo-dot" />
@@ -540,7 +448,7 @@ export default function NewEstimatePage() {
           </Link>
           <div className="vs-topbar-divider" />
           <Link href={`/projects/${projectId}`} className="vs-topbar-back">
-            ← {project?.customerName ?? "Project"}
+            ← {project?.customerName ?? "Customer"}
           </Link>
           <div className="vs-topbar-divider" />
           <div>
@@ -555,46 +463,34 @@ export default function NewEstimatePage() {
             )}
             {estimate && totals && (
               <>
-                <button type="button" onClick={() => handleDownloadPdf("proposal")} style={btnSecondary}>
-                  ↑ Customer Proposal
-                </button>
-                <button type="button" onClick={() => handleDownloadPdf("business")} style={btnSecondary}>
-                  ↑ Business Copy
-                </button>
+                <button type="button" onClick={() => handleDownloadPdf("proposal")} style={btnSecondary}>↑ Customer Proposal</button>
+                <button type="button" onClick={() => handleDownloadPdf("business")} style={btnSecondary}>↑ Business Copy</button>
               </>
             )}
-            <button
-              type="button"
-              onClick={saveDraft}
-              style={{
-                ...btnPrimary,
-                background:  savedConfirm ? `linear-gradient(135deg, ${DS.green} 0%, #047857 100%)` : `linear-gradient(135deg, ${DS.blue} 0%, ${DS.blueDark} 100%)`,
-                boxShadow:   savedConfirm ? "0 4px 14px rgba(5,150,105,0.35)" : DS.blueShadow,
-                transition:  "background 0.3s, box-shadow 0.3s",
-              }}
-            >
+            <button type="button" onClick={saveDraft} style={{
+              ...btnPrimary,
+              background:  savedConfirm ? `linear-gradient(135deg, ${DS.green} 0%, #047857 100%)` : `linear-gradient(135deg, ${DS.blue} 0%, ${DS.blueDark} 100%)`,
+              boxShadow:   savedConfirm ? "0 4px 14px rgba(5,150,105,0.35)" : DS.blueShadow,
+              transition:  "background 0.3s, box-shadow 0.3s",
+            }}>
               {savedConfirm ? "✓ Saved" : "Save"}
             </button>
           </div>
         </nav>
 
         <div className="vs-content">
-
-          {/* ── Page heading ── */}
           <div>
             <div className="vs-page-title">New Estimate</div>
             <div className="vs-page-sub">Describe the job scope to generate a priced estimate.</div>
           </div>
 
-          {/* ── Job description ── */}
+          {/* Job description */}
           <div className="vs-card">
             <div className="vs-card-header">
               <span className="vs-card-title">Job Description</span>
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                 {genState.status === "ready" && estimate?.generatedAt && (
-                  <span className="vs-status-ok">
-                    Generated {new Date(estimate.generatedAt).toLocaleString()}
-                  </span>
+                  <span className="vs-status-ok">Generated {new Date(estimate.generatedAt).toLocaleString()}</span>
                 )}
                 {genState.status === "ready" && (
                   <button type="button" onClick={clearEstimate} style={btnGhost}>✕ Clear</button>
@@ -606,9 +502,7 @@ export default function NewEstimatePage() {
                 value={jobDescription}
                 onChange={(e) => { setJobDescription(e.target.value); if (genState.status === "error") setGenState({ status: "idle" }); }}
                 placeholder="Describe the scope — e.g. Install 60A EV charger in garage, 35ft EMT run, new 2-pole breaker. Or: 4,000 sq ft warehouse, 200A service, LED high bay lighting."
-                rows={5}
-                style={inputStyle}
-                disabled={genState.status === "loading"}
+                rows={5} style={inputStyle} disabled={genState.status === "loading"}
               />
               {genState.status === "loading" && (
                 <div className="vs-progress-track">
@@ -616,19 +510,11 @@ export default function NewEstimatePage() {
                 </div>
               )}
               <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 12, flexWrap: "wrap" }}>
-                <button
-                  type="button"
-                  onClick={handleGenerate}
-                  disabled={!canGenerate}
-                  style={{ ...btnPrimary, opacity: canGenerate ? 1 : 0.45, cursor: canGenerate ? "pointer" : "not-allowed" }}
-                >
-                  {genState.status === "loading"
-                    ? <><span className="vs-spinner" /> Generating…</>
-                    : "⚡  Generate Estimate"}
+                <button type="button" onClick={handleGenerate} disabled={!canGenerate}
+                  style={{ ...btnPrimary, opacity: canGenerate ? 1 : 0.45, cursor: canGenerate ? "pointer" : "not-allowed" }}>
+                  {genState.status === "loading" ? <><span className="vs-spinner" /> Generating…</> : "⚡  Generate Estimate"}
                 </button>
-                {genState.status === "error" && (
-                  <span className="vs-status-error">⚠ {genState.msg}</span>
-                )}
+                {genState.status === "error" && <span className="vs-status-error">⚠ {genState.msg}</span>}
               </div>
               <div style={{ marginTop: 10, fontSize: 12, color: DS.text3, lineHeight: 1.5 }}>
                 Tip: include sq footage, voltage/amps, number of devices, run lengths, and access details.
@@ -636,30 +522,23 @@ export default function NewEstimatePage() {
             </div>
           </div>
 
-          {/* ── Scope summary ── */}
+          {/* Scope summary */}
           {estimate && (
             <div className="vs-card">
               <div className="vs-card-header">
                 <span className="vs-card-title">{autoTitle(estimate.summary)}</span>
                 <div style={{ display: "flex", gap: 6 }}>
-                  <span className={`vs-badge ${isAssembly ? "vs-badge-amber" : "vs-badge-blue"}`}>
-                    {isAssembly ? "Assembly" : "Line Item"}
-                  </span>
-                  {estimate.sqft && (
-                    <span className="vs-badge vs-badge-gray">{estimate.sqft.toLocaleString()} sq ft</span>
-                  )}
+                  <span className={`vs-badge ${isAssembly ? "vs-badge-amber" : "vs-badge-blue"}`}>{isAssembly ? "Assembly" : "Line Item"}</span>
+                  {estimate.sqft && <span className="vs-badge vs-badge-gray">{estimate.sqft.toLocaleString()} sq ft</span>}
                 </div>
               </div>
               <div className="vs-card-body">
-                <p style={{ fontSize: 14, color: DS.text2, lineHeight: 1.6, marginBottom: 12 }}>
-                  {estimate.summary}
-                </p>
+                <p style={{ fontSize: 14, color: DS.text2, lineHeight: 1.6, marginBottom: 12 }}>{estimate.summary}</p>
                 {estimate.assumptions.length > 0 && (
                   <div>
                     {estimate.assumptions.map((a, i) => (
                       <div key={i} className="vs-assumption">
-                        <span className="vs-assumption-dot" />
-                        {a}
+                        <span className="vs-assumption-dot" />{a}
                       </div>
                     ))}
                   </div>
@@ -668,7 +547,7 @@ export default function NewEstimatePage() {
             </div>
           )}
 
-          {/* ── Pricing settings ── */}
+          {/* Pricing settings */}
           {estimate && (
             <div className="vs-card">
               <div className="vs-card-header">
@@ -685,36 +564,28 @@ export default function NewEstimatePage() {
                     <div key={label} className="vs-setting-field">
                       <span className="vs-setting-label">{label}</span>
                       <div className="vs-setting-input-row">
-                        <input
-                          style={miniInput}
-                          inputMode="decimal"
-                          value={value}
+                        <input style={miniInput} inputMode="decimal" value={value}
                           onChange={(e) => { const v = Number(e.target.value); set(Number.isFinite(v) ? v : 0); }}
-                          onBlur={saveDraft}
-                        />
+                          onBlur={saveDraft} />
                         <span className="vs-setting-suffix">{suffix}</span>
                       </div>
                     </div>
                   ))}
                   <div style={{ marginLeft: "auto" }}>
-                    <button type="button" onClick={saveDraft} style={btnGhost}>
-                      {savedConfirm ? "✓ Saved" : "Save"}
-                    </button>
+                    <button type="button" onClick={saveDraft} style={btnGhost}>{savedConfirm ? "✓ Saved" : "Save"}</button>
                   </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* ── Materials table ── */}
+          {/* Materials */}
           {estimate && materialLines.length > 0 && (
             <div className="vs-card">
               <div className="vs-card-header">
                 <span className="vs-card-title">
                   Materials
-                  <span style={{ fontFamily: FONT.mono, fontWeight: 400, fontSize: 12, color: DS.text3 }}>
-                    {materialLines.length} items
-                  </span>
+                  <span style={{ fontFamily: FONT.mono, fontWeight: 400, fontSize: 12, color: DS.text3 }}>{materialLines.length} items</span>
                 </span>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <span className="vs-badge vs-badge-blue">AI Priced</span>
@@ -755,10 +626,7 @@ export default function NewEstimatePage() {
                     const { m } = item;
                     return (
                       <tr key={item.key}>
-                        <td>
-                          <div className="item-name">{m.item}</div>
-                          {m.notes && <div className="item-note">{m.notes}</div>}
-                        </td>
+                        <td><div className="item-name">{m.item}</div>{m.notes && <div className="item-note">{m.notes}</div>}</td>
                         <td className="right mono">{m.qty}</td>
                         <td className="right mono muted">{m.unit}</td>
                         <td className="right mono muted">${fmt(m.unitCost)}</td>
@@ -776,15 +644,13 @@ export default function NewEstimatePage() {
             </div>
           )}
 
-          {/* ── Labor table ── */}
+          {/* Labor */}
           {estimate && estimate.labor.length > 0 && (
             <div className="vs-card">
               <div className="vs-card-header">
                 <span className="vs-card-title">
                   Labor
-                  <span style={{ fontFamily: FONT.mono, fontWeight: 400, fontSize: 12, color: DS.text3 }}>
-                    {estimate.laborHours} hrs
-                  </span>
+                  <span style={{ fontFamily: FONT.mono, fontWeight: 400, fontSize: 12, color: DS.text3 }}>{estimate.laborHours} hrs</span>
                 </span>
                 <span className="vs-badge vs-badge-amber">${fmt(totals?.laborTotal ?? 0)}</span>
               </div>
@@ -803,9 +669,7 @@ export default function NewEstimatePage() {
                       <td style={{ fontWeight: 500 }}>{l.description}</td>
                       <td className="right mono">{l.hours}</td>
                       <td className="right mono muted">${laborRate}/hr</td>
-                      <td className="right mono" style={{ fontWeight: 600, color: DS.amber }}>
-                        ${fmt(r2(l.hours * laborRate))}
-                      </td>
+                      <td className="right mono" style={{ fontWeight: 600, color: DS.amber }}>${fmt(r2(l.hours * laborRate))}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -813,12 +677,10 @@ export default function NewEstimatePage() {
             </div>
           )}
 
-          {/* ── Totals ── */}
+          {/* Totals */}
           {totals && estimate && (
             <div className="vs-card">
-              <div className="vs-card-header">
-                <span className="vs-card-title">Summary</span>
-              </div>
+              <div className="vs-card-header"><span className="vs-card-title">Summary</span></div>
               <div className="vs-card-body">
                 <div className="vs-stat-grid">
                   <div className="vs-stat">
@@ -834,9 +696,7 @@ export default function NewEstimatePage() {
                   <div className="vs-stat">
                     <div className="vs-stat-label">Subtotal</div>
                     <div className="vs-stat-value">${fmt(totals.subtotal)}</div>
-                    <div className="vs-stat-sub">
-                      {permitFee > 0 ? `Includes permit $${fmt(permitFee)}` : "Before markup"}
-                    </div>
+                    <div className="vs-stat-sub">{permitFee > 0 ? `Includes permit $${fmt(permitFee)}` : "Before markup"}</div>
                   </div>
                   <div className="vs-stat vs-stat-blue">
                     <div className="vs-stat-label">Markup ({markupPct}%)</div>
@@ -853,19 +713,14 @@ export default function NewEstimatePage() {
                       </div>
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      <button type="button" onClick={() => handleDownloadPdf("proposal")} style={{ ...btnPrimary, fontSize: 12 }}>
-                        ↑ Customer Proposal
-                      </button>
-                      <button type="button" onClick={() => handleDownloadPdf("business")} style={{ ...btnSecondary, fontSize: 12, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.75)" }}>
-                        ↑ Business Copy
-                      </button>
+                      <button type="button" onClick={() => handleDownloadPdf("proposal")} style={{ ...btnPrimary, fontSize: 12 }}>↑ Customer Proposal</button>
+                      <button type="button" onClick={() => handleDownloadPdf("business")} style={{ ...btnSecondary, fontSize: 12, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.75)" }}>↑ Business Copy</button>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
           )}
-
         </div>
       </div>
     </>
