@@ -152,9 +152,11 @@ export default function DashboardPage() {
           </div>
           <div className="vs-topbar-actions">
             {profile.name && <span className="vs-topbar-user">{profile.name}</span>}
-            <div className="vs-topbar-avatar">
-              {profile.name ? profile.name.charAt(0).toUpperCase() : "?"}
-            </div>
+            <a href="/account" style={{ textDecoration: "none" }}>
+              <div className="vs-topbar-avatar" title="Account settings">
+                {profile.name ? profile.name.charAt(0).toUpperCase() : "?"}
+              </div>
+            </a>
           </div>
         </nav>
 
@@ -258,7 +260,8 @@ export default function DashboardPage() {
                         className="vs-input"
                         placeholder={placeholder}
                         value={(draft as any)[key] ?? ""}
-onChange={e => setDraft((d: UserProfile) => ({ ...d, [key]: e.target.value }))}                      />
+                        onChange={e => setDraft(d => ({ ...d, [key]: e.target.value }))}
+                      />
                     </div>
                   ))}
                 </div>
