@@ -80,7 +80,7 @@ export default function ProjectDetailPage() {
             <div style={{ fontSize: 40, marginBottom: 16 }}>📋</div>
             <div style={{ fontFamily: FONT.head, fontWeight: 800, fontSize: 20, color: DS.text1, marginBottom: 8 }}>Project not found</div>
             <div style={{ fontSize: 14, color: DS.text3, marginBottom: 24 }}>This project may have been deleted.</div>
-            <Link href="/projects" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 18px", borderRadius: R.md, background: `linear-gradient(135deg, ${DS.blue} 0%, ${DS.blueDark} 100%)`, color: "#fff", fontFamily: FONT.head, fontWeight: 700, fontSize: 13, textDecoration: "none" }}>← Back to Projects</Link>
+            <Link href="/projects" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 18px", borderRadius: R.md, background: `linear-gradient(135deg, ${DS.blue} 0%, ${DS.blueDark} 100%)`, color: "#fff", fontFamily: FONT.head, fontWeight: 700, fontSize: 13, textDecoration: "none" }}>← Back to Customers</Link>
           </div>
         </div>
       </>
@@ -151,7 +151,7 @@ export default function ProjectDetailPage() {
           <a href="/" className="vs-logo"><div className="vs-logo-mark">⚡</div>Voltscope</a>
           <div className="vs-topbar-divider" />
           <div className="vs-breadcrumb">
-            <a href="/projects">Projects</a>
+            <a href="/projects">Customers</a>
             <span className="vs-breadcrumb-sep">›</span>
             <span className="vs-breadcrumb-current">{project.customerName}</span>
           </div>

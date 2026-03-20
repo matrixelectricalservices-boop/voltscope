@@ -357,7 +357,7 @@ export default function DashboardPage() {
           <div className="vs-topbar-divider" />
           <div className="vs-topbar-nav">
             <a href="/dashboard" className="vs-topbar-link active">Dashboard</a>
-            <a href="/projects"  className="vs-topbar-link">Projects</a>
+            <a href="/projects" className="vs-topbar-link">Customers</a>
           </div>
           <div className="vs-topbar-actions">
             {profile.name && (
@@ -414,8 +414,8 @@ export default function DashboardPage() {
               {
                 href:  "/projects",
                 icon:  "📋", iconClass: "blue",
-                title: "Projects",
-                desc:  "View all your projects and open existing estimates.",
+                title: "Customers",
+                desc:  "View all your customers and open existing estimates.",
               },
               {
                 href:  "/projects",
