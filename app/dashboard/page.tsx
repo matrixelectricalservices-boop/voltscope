@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { loadProfileFromDB, saveProfile, type UserProfile } from "../lib/userProfile";
+import { loadProfileFromDB, saveProfile, type UserProfile } from "../lib/userProfile";import { supabase } from "../lib/supabase";
 const DS = {
   shell:        "#0B0F1A",
   shellBorder:  "rgba(255,255,255,0.07)",
@@ -43,7 +43,9 @@ export default function DashboardPage() {
   const [editing,      setEditing]      = useState(false);
   const [draft,        setDraft]        = useState<UserProfile>(defaultProfile());
   const [savedConfirm, setSavedConfirm] = useState(false);
-  const [loading,      setLoading]      = useState(true);
+  const [loading,       setLoading]       = useState(true);
+  const [customerCount, setCustomerCount] = useState<number | null>(null);
+  const [estimateCount, setEstimateCount] = useState<number | null>(null);
 
   // Load profile from Supabase on mount
   useEffect(() => {
@@ -52,6 +54,14 @@ export default function DashboardPage() {
       setProfile(p);
       setDraft(p);
       if (!p.company) setEditing(true);
+
+      // Fetch real counts from Supabase
+      const [{ count: cCount }, { count: eCount }] = await Promise.all([
+        supabase.from("customers").select("*", { count: "exact", head: true }),
+        supabase.from("estimates").select("*",  { count: "exact", head: true }),
+      ]);
+      setCustomerCount(cCount ?? 0);
+      setEstimateCount(eCount ?? 0);
       setLoading(false);
     }
     load();
@@ -71,12 +81,6 @@ export default function DashboardPage() {
   }
 
   const isProfileComplete = !!(profile.company && profile.phone && profile.email);
-
-  const stats = [
-    { label: "Estimates", value: "—", sub: "this month" },
-    { label: "Proposals", value: "—", sub: "sent"       },
-    { label: "Customers", value: "—", sub: "active"     },
-  ];
 
   return (
     <>
@@ -103,7 +107,7 @@ export default function DashboardPage() {
         .vs-card-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid ${DS.divider}; gap: 12px; flex-wrap: wrap; }
         .vs-card-title { font-family: ${FONT.head}; font-weight: 700; font-size: 14px; color: ${DS.text1}; display: flex; align-items: center; gap: 8px; }
         .vs-card-body { padding: 20px; }
-        .vs-stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 24px; }
+        .vs-stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 24px; }
         .vs-stat { background: ${DS.card}; border: 1px solid ${DS.border}; border-radius: ${R.xl}px; box-shadow: ${DS.cardShadow}; padding: 18px 20px; }
         .vs-stat-label { font-family: ${FONT.head}; font-weight: 600; font-size: 11px; letter-spacing: 0.5px; text-transform: uppercase; color: ${DS.text3}; margin-bottom: 8px; }
         .vs-stat-value { font-family: ${FONT.mono}; font-size: 28px; font-weight: 500; color: ${DS.text1}; letter-spacing: -0.5px; }
@@ -187,13 +191,16 @@ export default function DashboardPage() {
 
           {/* Stats */}
           <div className="vs-stat-row">
-            {stats.map(({ label, value, sub }) => (
-              <div key={label} className="vs-stat">
-                <div className="vs-stat-label">{label}</div>
-                <div className="vs-stat-value">{value}</div>
-                <div className="vs-stat-sub">{sub}</div>
-              </div>
-            ))}
+            <div className="vs-stat">
+              <div className="vs-stat-label">Customers</div>
+              <div className="vs-stat-value">{customerCount ?? "—"}</div>
+              <div className="vs-stat-sub">total saved</div>
+            </div>
+            <div className="vs-stat">
+              <div className="vs-stat-label">Estimates</div>
+              <div className="vs-stat-value">{estimateCount ?? "—"}</div>
+              <div className="vs-stat-sub">total generated</div>
+            </div>
           </div>
 
           {/* Quick actions */}

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getProjects, saveProject, deleteProject, type Project } from "@/app/lib/projectStore";
+import { supabase } from "@/app/lib/supabase";
 
 const DS = {
   shell:        "#0B0F1A",
@@ -78,6 +79,7 @@ function relativeTime(iso: string): string {
 export default function ProjectsPage() {
   const [projects,      setProjects]      = useState<Project[]>([]);
   const [loading,       setLoading]       = useState(true);
+  const [estimateCounts,setEstimateCounts]= useState<Record<string, number>>({});
   const [showForm,      setShowForm]      = useState(false);
   const [form,          setForm]          = useState<NewCustomerForm>(emptyForm());
   const [errors,        setErrors]        = useState<Partial<NewCustomerForm>>({});
@@ -87,10 +89,26 @@ export default function ProjectsPage() {
 
   // Load customers from Supabase on mount
   useEffect(() => {
-    getProjects().then((data) => {
+    async function load() {
+      const data = await getProjects();
       setProjects(data);
       setLoading(false);
-    });
+
+      // Fetch estimate counts for all customers in one query
+      if (data.length > 0) {
+        const { data: ests } = await supabase
+          .from("estimates")
+          .select("customer_id");
+        if (ests) {
+          const counts: Record<string, number> = {};
+          for (const e of ests) {
+            counts[e.customer_id] = (counts[e.customer_id] ?? 0) + 1;
+          }
+          setEstimateCounts(counts);
+        }
+      }
+    }
+    load();
   }, []);
 
   const filtered = projects.filter((p) => {
@@ -339,6 +357,11 @@ export default function ProjectsPage() {
                         <div className="vs-project-meta">
                           <span className="vs-project-badge">{p.jobType}</span>
                           <span className="vs-project-time">{relativeTime(p.createdAt)}</span>
+                          {(estimateCounts[p.id] ?? 0) > 0 && (
+                            <span className="vs-project-badge" style={{ background: DS.greenLight, color: DS.green, border: "1px solid #A7F3D0" }}>
+                              {estimateCounts[p.id]} estimate{estimateCounts[p.id] !== 1 ? "s" : ""}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </Link>
