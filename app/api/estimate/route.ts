@@ -131,7 +131,15 @@ PRICING RULES — use contractor (supply house) pricing, NOT retail:
   125A sub panel:            $95–130
   200A disconnect:           $85–120
   Meter base 200A:           $130–175
+  Meter base 320A:           $180–240
   Meter base 400A:           $260–320
+  400A main disconnect:      $180–260
+  500 kcmil AL XHHW:         $4.50–6.00/ft
+  350 kcmil AL XHHW:         $3.20–4.50/ft
+  250 kcmil AL XHHW:         $2.40–3.20/ft
+  XHHW 2/0 AL:               $1.60–2.20/ft
+  SER 2/0 AL cable (residential service entrance): $2.80–3.50/ft
+  SER 4/0 AL cable (200A residential):             $4.20–5.50/ft
   NEMA 14-50 receptacle:     $20–28
   GFCI 20A receptacle:       $14–18
   TR 20A duplex outlet:      $3–5
@@ -165,6 +173,55 @@ NEC WIRE SIZING:
   NM-B: indoor dry residential | MC: commercial/no NM | EMT: outdoor/exposed + THHN inside
   Wire qty = runLengthFt × 1.15
 
+SERVICE ENTRANCE WIRE SIZING (USE THESE — do not guess):
+  100A service  → 1/0 AWG aluminum XHHW or #4 AWG copper
+  150A service  → 2/0 AWG aluminum XHHW or #1 AWG copper
+  200A service  → 2/0 AWG aluminum XHHW (most common) or #2/0 AWG copper
+  320A service  → 350 kcmil aluminum XHHW
+  400A service  → 500 kcmil aluminum XHHW (2 sets of 250 kcmil AL is acceptable)
+  Always include neutral + ground of same size. Ground can be 1 size smaller per NEC.
+  Service entrance cable runs: meter base to main panel. Always include 3 conductors (2 hot + 1 neutral) + 1 ground.
+
+DEFAULT RUN LENGTHS (use these when length is not specified):
+  Meter base to main panel (typical):  6 ft
+  Meter base to main panel (garage):   25 ft
+  Meter base to main panel (basement): 15 ft
+  EV charger from panel (garage):      30 ft
+  EV charger from panel (exterior):    50 ft
+  Subpanel feed:                        40 ft
+  Standard branch circuit:              35 ft
+  Lighting circuit (per fixture):       25 ft × number of fixtures (daisy-chained)
+    Example: 6 recessed lights = 6 × 25 ft = 150 ft NM-B 14/2
+    Example: 10 recessed lights = 10 × 25 ft = 250 ft NM-B 14/2
+  Always note the assumed length in the item's notes field.
+
+METER BASE & PANEL SIZING:
+  200A upgrade → 200A meter base + 200A main breaker panel (40-space minimum)
+  400A upgrade → 400A meter base + 400A main breaker (or 2×200A panels fed from 400A disconnect)
+  Always include: meter base, main panel, main breaker, ground rods (2), grounding electrode conductor, meter seal wire
+
+RESIDENTIAL vs COMMERCIAL SERVICE UPGRADE — CRITICAL SCOPE DIFFERENCE:
+
+  RESIDENTIAL 400A upgrade (house, home, dwelling):
+    - Use 2/0 AL XHHW × 2 sets (two 200A panels is most common residential approach)
+    - OR single 400A meter base + 400A disconnect + one large panel
+    - Typical run: 6–10 ft meter to panel
+    - NO EMT required if inside conduit already exists — use SER cable instead
+    - SER 2/0 AL cable (service entrance cable): $2.80–3.50/ft — use this for residential
+    - Labor: 8–12 hrs residential (simpler access, shorter runs, utility coordination)
+    - Total material cost target: $800–1,400 for residential 400A upgrade
+    - Total job cost with labor at $150/hr + markup: $2,500–4,000 range
+
+  COMMERCIAL 400A upgrade (warehouse, office, commercial building):
+    - Use 500 kcmil AL XHHW in EMT conduit
+    - Longer runs, harder access, more conduit fittings required
+    - Labor: 12–20 hrs commercial
+    - Total job cost: $5,000–9,000 range
+
+  DETECT from description: if "residential", "house", "home", "dwelling" → use residential scope
+  If "commercial", "warehouse", "office", "building" → use commercial scope
+  If unclear → use residential scope as default for meter/panel upgrades
+
 BREAKER SIZING:
   EV 32A EVSE → 40A 2-pole | EV 40A → 50A 2-pole | EV 48A → 60A 2-pole
   Dryer → 30A 2-pole | Range → 50A 2-pole | Standard outlet → 20A 1-pole
@@ -181,7 +238,9 @@ EMT RUNS:
 LABOR HOURS (baseline, adjust for difficulty/access):
   EV charger install (standard):    3.5–5 hrs
   Service upgrade 200A:             6–10 hrs
+  Service upgrade 400A:             10–16 hrs
   Panel/breaker work:               2–4 hrs
+  Meter base swap only:             2–3 hrs
   Per 10ft conduit run:             0.5 hrs
 
   DEVICE INSTALL — tiered bulk rates (includes box, wire termination, device, plate):
