@@ -38,62 +38,48 @@ const DS = {
 const FONT = {
   head: "'Plus Jakarta Sans', 'Segoe UI', system-ui, sans-serif",
   body: "'Inter', 'Segoe UI', system-ui, sans-serif",
-  mono: "'JetBrains Mono', 'Fira Code', 'Consolas', monospace",
+  mono: "'JetBrains Mono', 'Fira Code', monospace",
 } as const;
 
 const R = { xs: 6, sm: 8, md: 10, lg: 12, xl: 16 } as const;
 
-type MaterialLine = {
-  item:      string;
-  qty:       number;
-  unit:      string;
-  unitCost:  number;
-  lineTotal: number;
-  notes?:    string;
-  category:  string;
-};
+// ── Logo mark ──
+const LogoMark = () => (
+  <div style={{ width: 30, height: 30, borderRadius: R.md, background: "#0B0F1A", border: "1px solid rgba(37,99,235,0.4)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <line x1="5" y1="17" x2="5" y2="9" stroke="#2563EB" strokeWidth="2.2" strokeLinecap="round"/>
+      <line x1="15" y1="17" x2="15" y2="9" stroke="#2563EB" strokeWidth="2.2" strokeLinecap="round"/>
+      <path d="M5 9 Q10 2 15 9" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round"/>
+      <circle cx="8" cy="6" r="1.2" fill="#93c5fd"/>
+      <circle cx="12" cy="6" r="1.2" fill="#93c5fd"/>
+    </svg>
+  </div>
+);
 
-type LaborLine = {
-  description: string;
-  hours:       number;
-  rate:        number;
-  total:       number;
-};
-
+// ── Types ──
+type MaterialLine = { item: string; qty: number; unit: string; unitCost: number; lineTotal: number; notes?: string; category: string; };
+type LaborLine    = { description: string; hours: number; rate: number; total: number; };
 type GeneratedEstimate = {
-  generatedAt:        string;
-  summary:            string;
-  assumptions:        string[];
-  scopeType:          "line_item" | "assembly";
-  materials:          MaterialLine[];
-  labor:              LaborLine[];
-  laborHours:         number;
-  isNewConstruction?: boolean;
-  sqft?:              number;
-  ratePerSqft?:       number;
+  generatedAt: string; summary: string; assumptions: string[];
+  scopeType: "line_item" | "assembly"; materials: MaterialLine[];
+  labor: LaborLine[]; laborHours: number;
+  isNewConstruction?: boolean; sqft?: number; ratePerSqft?: number;
 };
-
 type Draft = {
-  savedAt:            string;
-  jobDescription?:    string;
-  estimate?:          GeneratedEstimate;
-  laborRate?:         number;
-  markupPct?:         number;
-  permitFee?:         number;
-  materialCostIndex?: number;
+  savedAt: string; jobDescription?: string; estimate?: GeneratedEstimate;
+  laborRate?: number; markupPct?: number; permitFee?: number; materialCostIndex?: number;
 };
-
 type UIState = { isSaved: boolean; lastSavedAt?: string };
 
 function autoTitle(summary: string) {
   const s = summary.toLowerCase();
-  if (s.includes("warehouse"))                                           return "Warehouse Electrical";
-  if (s.includes("new home") || s.includes("new construction"))         return "New Construction";
-  if (s.includes("commercial") || s.includes("office"))                 return "Commercial Buildout";
-  if (s.includes("ev") || s.includes("charger"))                        return "EV Charger Install";
-  if (s.includes("panel") || s.includes("service"))                     return "Panel / Service Work";
-  if (s.includes("receptacle") || s.includes("outlet"))                 return "Outlet Installation";
-  if (s.includes("light") || s.includes("fixture"))                     return "Lighting";
+  if (s.includes("warehouse"))                                return "Warehouse Electrical";
+  if (s.includes("new home") || s.includes("new construction")) return "New Construction";
+  if (s.includes("commercial") || s.includes("office"))      return "Commercial Buildout";
+  if (s.includes("ev") || s.includes("charger"))             return "EV Charger Install";
+  if (s.includes("panel") || s.includes("service"))          return "Panel / Service Work";
+  if (s.includes("receptacle") || s.includes("outlet"))      return "Outlet Installation";
+  if (s.includes("light") || s.includes("fixture"))          return "Lighting";
   return "Electrical Estimate";
 }
 
@@ -102,50 +88,40 @@ function fmt(n: number) { return n.toLocaleString("en-US", { minimumFractionDigi
 
 const CATEGORY_ORDER = ["equipment","wire","conduit","devices","boxes","fittings","consumables"];
 const CATEGORY_LABEL: Record<string, string> = {
-  equipment:   "Equipment",
-  wire:        "Wire & Cable",
-  conduit:     "Conduit & Raceway",
-  devices:     "Devices",
-  boxes:       "Boxes & Covers",
-  fittings:    "Fittings & Hardware",
-  consumables: "Consumables",
+  equipment: "Equipment", wire: "Wire & Cable", conduit: "Conduit & Raceway",
+  devices: "Devices", boxes: "Boxes & Covers", fittings: "Fittings & Hardware", consumables: "Consumables",
 };
 
+// ── Shared button styles ──
 const btnPrimary: CSSProperties = {
   display: "inline-flex", alignItems: "center", gap: 6,
-  padding: "9px 18px", borderRadius: R.md, border: "none",
+  padding: "10px 18px", borderRadius: R.md, border: "none",
   background: `linear-gradient(135deg, ${DS.blue} 0%, ${DS.blueDark} 100%)`,
-  color: "#fff", fontFamily: FONT.head, fontWeight: 600, fontSize: 13,
-  letterSpacing: 0.2, cursor: "pointer", boxShadow: DS.blueShadow,
-  whiteSpace: "nowrap", transition: "opacity 0.15s",
+  color: "#fff", fontFamily: FONT.head, fontWeight: 600, fontSize: 14,
+  cursor: "pointer", boxShadow: DS.blueShadow, whiteSpace: "nowrap",
 };
-
 const btnSecondary: CSSProperties = {
   display: "inline-flex", alignItems: "center", gap: 6,
-  padding: "9px 16px", borderRadius: R.md, border: `1px solid ${DS.border}`,
+  padding: "10px 16px", borderRadius: R.md, border: `1px solid ${DS.border}`,
   background: DS.card, color: DS.text1, fontFamily: FONT.head, fontWeight: 600,
-  fontSize: 13, cursor: "pointer", boxShadow: DS.cardShadow,
-  whiteSpace: "nowrap", transition: "background 0.15s",
+  fontSize: 14, cursor: "pointer", whiteSpace: "nowrap",
 };
-
 const btnGhost: CSSProperties = {
   display: "inline-flex", alignItems: "center", gap: 5,
   padding: "6px 12px", borderRadius: R.sm, border: `1px solid ${DS.border}`,
   background: "transparent", color: DS.text2, fontFamily: FONT.body,
   fontWeight: 500, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap",
 };
-
 const inputStyle: CSSProperties = {
-  width: "100%", padding: "11px 14px", borderRadius: R.md,
+  width: "100%", padding: "12px 14px", borderRadius: R.md,
   border: `1px solid ${DS.border}`, outline: "none",
-  fontFamily: FONT.body, fontSize: 14, lineHeight: 1.55,
+  fontFamily: FONT.body, fontSize: 15, lineHeight: 1.55,
   color: DS.text1, background: DS.card, resize: "vertical",
 };
-
 const miniInput: CSSProperties = {
-  width: 90, padding: "7px 10px", borderRadius: R.sm,
+  width: 90, padding: "8px 10px", borderRadius: R.sm,
   border: `1px solid ${DS.border}`, outline: "none",
-  fontFamily: FONT.mono, fontSize: 13, color: DS.text1,
+  fontFamily: FONT.mono, fontSize: 14, color: DS.text1,
   background: DS.card, textAlign: "right",
 };
 
@@ -153,7 +129,7 @@ export default function NewEstimatePage() {
   const params       = useParams<{ id: string }>();
   const searchParams = useSearchParams();
   const projectId    = params?.id;
-  const draftKey     = `voltscope:draft-estimate:${projectId ?? "unknown"}`;
+  const draftKey     = `sparcbid:draft-estimate:${projectId ?? "unknown"}`;
 
   const [project,           setProject]          = useState<Project | null>(null);
   const [uiState,           setUiState]          = useState<UIState>({ isSaved: false });
@@ -165,20 +141,15 @@ export default function NewEstimatePage() {
   const [permitFee,         setPermitFee]        = useState(0);
   const [materialCostIndex, setMaterialCostIndex]= useState(1.0);
   const [showAllMaterials,  setShowAllMaterials] = useState(false);
-  const [genState, setGenState] = useState<{
-    status: "idle" | "loading" | "ready" | "error";
-    msg?: string;
-  }>({ status: "idle" });
+  const [genState, setGenState] = useState<{ status: "idle"|"loading"|"ready"|"error"; msg?: string }>({ status: "idle" });
   const [progress, setProgress] = useState(0);
 
-  // ── Load project from Supabase ──
+  // Load project
   useEffect(() => {
-    if (projectId) {
-      getProjects().then((all) => setProject(all.find((p) => p.id === projectId) ?? null));
-    }
+    if (projectId) getProjects().then((all) => setProject(all.find((p) => p.id === projectId) ?? null));
   }, [projectId]);
 
-  // ── Restore draft from localStorage ──
+  // Restore draft
   useEffect(() => {
     if (!projectId) return;
     const raw = localStorage.getItem(draftKey);
@@ -195,23 +166,13 @@ export default function NewEstimatePage() {
     } catch { /* ignore */ }
   }, [projectId, draftKey]);
 
-  // ── Load saved estimate from ?load=id ──
+  // Load saved estimate from ?load=id
   useEffect(() => {
     const loadId = searchParams?.get("load");
     if (!loadId) return;
     getEstimate(loadId).then((saved) => {
       if (!saved) return;
-      setEstimate({
-        generatedAt:  saved.savedAt,
-        summary:      saved.snapshot.summary,
-        assumptions:  saved.snapshot.assumptions,
-        scopeType:    saved.snapshot.scopeType,
-        materials:    saved.snapshot.materials,
-        labor:        saved.snapshot.labor,
-        laborHours:   saved.snapshot.laborHours,
-        sqft:         saved.snapshot.sqft,
-        ratePerSqft:  saved.snapshot.ratePerSqft,
-      });
+      setEstimate({ generatedAt: saved.savedAt, summary: saved.snapshot.summary, assumptions: saved.snapshot.assumptions, scopeType: saved.snapshot.scopeType, materials: saved.snapshot.materials, labor: saved.snapshot.labor, laborHours: saved.snapshot.laborHours, sqft: saved.snapshot.sqft, ratePerSqft: saved.snapshot.ratePerSqft });
       setLaborRate(saved.snapshot.laborRate);
       setMarkupPct(saved.snapshot.markupPct);
       setPermitFee(saved.snapshot.permitFee);
@@ -220,16 +181,15 @@ export default function NewEstimatePage() {
     });
   }, [searchParams]);
 
-  // ── Progress bar ──
+  // Progress bar
   useEffect(() => {
     if (genState.status !== "loading") { setProgress(0); return; }
     setProgress(10);
-    const id = window.setInterval(() =>
-      setProgress((p) => Math.min(90, p + Math.max(1, Math.round((90 - p) * 0.12)))), 280);
+    const id = window.setInterval(() => setProgress((p) => Math.min(90, p + Math.max(1, Math.round((90 - p) * 0.12)))), 280);
     return () => window.clearInterval(id);
   }, [genState.status]);
 
-  // ── Live totals ──
+  // Totals
   const totals = useMemo(() => {
     if (!estimate) return null;
     const materialTotal = r2(estimate.materials.reduce((s, m) => s + r2(m.qty * m.unitCost * materialCostIndex), 0));
@@ -243,52 +203,27 @@ export default function NewEstimatePage() {
 
   const materialLines = useMemo(() => {
     if (!estimate) return [];
-    return estimate.materials.map((m) => ({
-      ...m,
-      unitCost:  r2(m.unitCost * materialCostIndex),
-      lineTotal: r2(m.qty * m.unitCost * materialCostIndex),
-    }));
+    return estimate.materials.map((m) => ({ ...m, unitCost: r2(m.unitCost * materialCostIndex), lineTotal: r2(m.qty * m.unitCost * materialCostIndex) }));
   }, [estimate, materialCostIndex]);
 
   const groupedMaterials = useMemo(() => {
     const groups: Record<string, MaterialLine[]> = {};
-    for (const m of materialLines) {
-      const cat = m.category ?? "consumables";
-      if (!groups[cat]) groups[cat] = [];
-      groups[cat].push(m);
-    }
+    for (const m of materialLines) { const cat = m.category ?? "consumables"; if (!groups[cat]) groups[cat] = []; groups[cat].push(m); }
     return groups;
   }, [materialLines]);
 
-  // ── Save ──
   function saveDraft() {
     if (!projectId) return;
-    const payload: Draft = {
-      savedAt:        new Date().toISOString(),
-      jobDescription: jobDescription.trim(),
-      estimate:       estimate ?? undefined,
-      laborRate, markupPct, permitFee, materialCostIndex,
-    };
+    const payload: Draft = { savedAt: new Date().toISOString(), jobDescription: jobDescription.trim(), estimate: estimate ?? undefined, laborRate, markupPct, permitFee, materialCostIndex };
     localStorage.setItem(draftKey, JSON.stringify(payload));
     setUiState({ isSaved: true, lastSavedAt: payload.savedAt });
     setSavedConfirm(true);
     setTimeout(() => setSavedConfirm(false), 2000);
     if (estimate && totals) {
-      saveEstimate(projectId, jobDescription.trim(), {
-        summary:      estimate.summary,
-        assumptions:  estimate.assumptions,
-        scopeType:    estimate.scopeType,
-        materials:    materialLines,
-        labor:        estimate.labor,
-        laborHours:   estimate.laborHours,
-        sqft:         estimate.sqft,
-        ratePerSqft:  totals.ratePerSqft,
-        laborRate, markupPct, permitFee,
-      });
+      saveEstimate(projectId, jobDescription.trim(), { summary: estimate.summary, assumptions: estimate.assumptions, scopeType: estimate.scopeType, materials: materialLines, labor: estimate.labor, laborHours: estimate.laborHours, sqft: estimate.sqft, ratePerSqft: totals.ratePerSqft, laborRate, markupPct, permitFee });
     }
   }
 
-  // ── Generate ──
   async function handleGenerate() {
     const text = jobDescription.trim();
     if (!text) { setGenState({ status: "error", msg: "Please enter a job description first." }); return; }
@@ -296,76 +231,50 @@ export default function NewEstimatePage() {
     const controller = new AbortController();
     const timeoutId  = window.setTimeout(() => controller.abort(), 55_000);
     try {
-      const res = await fetch("/api/estimate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ description: text, laborRate, markupPct, permitFee, materialCostIndex }),
-        signal: controller.signal,
-      });
+      const res  = await fetch("/api/estimate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ description: text, laborRate, markupPct, permitFee, materialCostIndex }), signal: controller.signal });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data) { setGenState({ status: "error", msg: data?.error ?? "API error — please try again." }); return; }
       const generated: GeneratedEstimate = {
-        generatedAt:       new Date().toISOString(),
-        summary:           data.summary    ?? "Electrical scope estimate.",
-        assumptions:       Array.isArray(data.assumptions) ? data.assumptions : [],
-        scopeType:         data.scopeType  === "assembly" ? "assembly" : "line_item",
-        materials:         Array.isArray(data.materials)  ? data.materials  : [],
-        labor:             Array.isArray(data.labor)      ? data.labor      : [],
-        laborHours:        typeof data.laborHours === "number" ? data.laborHours : 0,
+        generatedAt: new Date().toISOString(), summary: data.summary ?? "Electrical scope estimate.",
+        assumptions: Array.isArray(data.assumptions) ? data.assumptions : [],
+        scopeType: data.scopeType === "assembly" ? "assembly" : "line_item",
+        materials: Array.isArray(data.materials) ? data.materials : [],
+        labor: Array.isArray(data.labor) ? data.labor : [],
+        laborHours: typeof data.laborHours === "number" ? data.laborHours : 0,
         isNewConstruction: data.isNewConstruction === true,
-        sqft:              typeof data.sqft === "number" && data.sqft > 0 ? data.sqft : undefined,
-        ratePerSqft:       typeof data.ratePerSqft === "number" ? data.ratePerSqft : undefined,
+        sqft: typeof data.sqft === "number" && data.sqft > 0 ? data.sqft : undefined,
+        ratePerSqft: typeof data.ratePerSqft === "number" ? data.ratePerSqft : undefined,
       };
-      setEstimate(generated);
-      setProgress(100);
-      setShowAllMaterials(false);
-      setGenState({ status: "ready" });
-      if (projectId) {
-        const payload: Draft = { savedAt: new Date().toISOString(), jobDescription: text, estimate: generated, laborRate, markupPct, permitFee, materialCostIndex };
-        localStorage.setItem(draftKey, JSON.stringify(payload));
-        setUiState({ isSaved: true, lastSavedAt: payload.savedAt });
-      }
+      setEstimate(generated); setProgress(100); setShowAllMaterials(false); setGenState({ status: "ready" });
+      if (projectId) { const payload: Draft = { savedAt: new Date().toISOString(), jobDescription: text, estimate: generated, laborRate, markupPct, permitFee, materialCostIndex }; localStorage.setItem(draftKey, JSON.stringify(payload)); setUiState({ isSaved: true, lastSavedAt: payload.savedAt }); }
     } catch (e: unknown) {
-      const isTimeout = e instanceof Error && e.name === "AbortError";
-      setGenState({ status: "error", msg: isTimeout ? "Request timed out." : "Request failed — please try again." });
-    } finally {
-      window.clearTimeout(timeoutId);
-    }
+      setGenState({ status: "error", msg: e instanceof Error && e.name === "AbortError" ? "Request timed out." : "Request failed — please try again." });
+    } finally { window.clearTimeout(timeoutId); }
   }
 
-  // ── Clear ──
   function clearEstimate() {
     setJobDescription(""); setEstimate(null); setProgress(0);
     setGenState({ status: "idle" }); setShowAllMaterials(false);
     if (projectId) { localStorage.removeItem(draftKey); setUiState({ isSaved: false }); }
-    const url = new URL(window.location.href);
-    url.searchParams.delete("load");
-    window.history.replaceState({}, "", url.toString());
+    const url = new URL(window.location.href); url.searchParams.delete("load"); window.history.replaceState({}, "", url.toString());
   }
 
-  // ── PDF ──
   function handleDownloadPdf(mode: "business" | "proposal") {
     if (!estimate || !totals) return;
     const profile = loadProfile();
     generateEstimatePdf({
-      companyName:    profile.company || "Your Company",
-      companyPhone:   profile.phone   || "",
-      companyEmail:   profile.email   || "",
-      customerName:   project?.customerName ?? "Customer",
-      jobType:        project?.jobType,
-      jobDescription, estimateDate: new Date().toLocaleDateString("en-US"), mode,
-      summary:        estimate.summary, assumptions: estimate.assumptions,
-      scopeType:      estimate.scopeType, sqft: estimate.sqft, materials: materialLines,
-      labor:          estimate.labor.map((l) => ({ ...l, rate: laborRate, total: l.hours * laborRate })),
-      laborHours:     estimate.laborHours, laborRate,
-      materialTotal:  totals.materialTotal, laborTotal: totals.laborTotal,
-      subtotal:       totals.subtotal, markup: totals.markup, markupPct, permitFee,
-      finalTotal:     totals.finalTotal, ratePerSqft: totals.ratePerSqft,
+      companyName: profile.company || "Your Company", companyPhone: profile.phone || "", companyEmail: profile.email || "",
+      customerName: project?.customerName ?? "Customer", jobType: project?.jobType, jobDescription,
+      estimateDate: new Date().toLocaleDateString("en-US"), mode,
+      summary: estimate.summary, assumptions: estimate.assumptions, scopeType: estimate.scopeType, sqft: estimate.sqft,
+      materials: materialLines, labor: estimate.labor.map((l) => ({ ...l, rate: laborRate, total: l.hours * laborRate })),
+      laborHours: estimate.laborHours, laborRate, materialTotal: totals.materialTotal, laborTotal: totals.laborTotal,
+      subtotal: totals.subtotal, markup: totals.markup, markupPct, permitFee, finalTotal: totals.finalTotal, ratePerSqft: totals.ratePerSqft,
     });
   }
 
   const canGenerate = jobDescription.trim().length > 0 && genState.status !== "loading" && genState.status !== "ready";
-  const PREVIEW     = 6;
+  const PREVIEW     = 5;
   const visibleMats = showAllMaterials ? materialLines : materialLines.slice(0, PREVIEW);
   const hiddenCount = Math.max(0, materialLines.length - PREVIEW);
   const isAssembly  = estimate?.scopeType === "assembly";
@@ -377,101 +286,136 @@ export default function NewEstimatePage() {
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         body { background: ${DS.pageBg}; }
         .vs-page { min-height: 100vh; background: ${DS.pageBg}; font-family: ${FONT.body}; color: ${DS.text1}; }
-        .vs-topbar { position: sticky; top: 0; z-index: 100; height: 56px; background: ${DS.shell}; border-bottom: 1px solid ${DS.shellBorder}; display: flex; align-items: center; padding: 0 24px; gap: 16px; }
-        .vs-topbar-logo { font-family: ${FONT.head}; font-weight: 800; font-size: 15px; color: #fff; letter-spacing: -0.3px; display: flex; align-items: center; gap: 8px; text-decoration: none; }
-        .vs-topbar-logo-dot { width: 8px; height: 8px; border-radius: 50%; background: ${DS.blue}; box-shadow: 0 0 8px ${DS.blue}; }
-        .vs-topbar-divider { width: 1px; height: 20px; background: ${DS.shellBorder}; }
-        .vs-topbar-back { display: inline-flex; align-items: center; gap: 6px; font-family: ${FONT.body}; font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.55); text-decoration: none; padding: 5px 10px; border-radius: ${R.sm}px; border: 1px solid ${DS.shellBorder}; transition: background 0.15s, color 0.15s; }
-        .vs-topbar-back:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.9); }
-        .vs-topbar-project { font-family: ${FONT.head}; font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.85); }
-        .vs-topbar-sub { font-size: 12px; color: rgba(255,255,255,0.35); font-family: ${FONT.body}; }
-        .vs-topbar-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
-        .vs-topbar-save-status { font-size: 11px; color: rgba(255,255,255,0.30); font-family: ${FONT.mono}; }
-        .vs-content { max-width: 900px; margin: 0 auto; padding: 28px 20px 60px; display: flex; flex-direction: column; gap: 16px; }
-        .vs-page-title { font-family: ${FONT.head}; font-weight: 800; font-size: 22px; color: ${DS.text1}; letter-spacing: -0.4px; }
-        .vs-page-sub { font-size: 13px; color: ${DS.text3}; margin-top: 3px; }
+
+        /* ── Topbar ── */
+        .vs-topbar { position: sticky; top: 0; z-index: 100; height: 56px; background: ${DS.shell}; border-bottom: 1px solid ${DS.shellBorder}; display: flex; align-items: center; padding: 0 16px; gap: 0; overflow: hidden; }
+        .vs-logo { font-family: ${FONT.head}; font-weight: 800; font-size: 16px; color: #fff; letter-spacing: -0.3px; display: flex; align-items: center; gap: 8px; text-decoration: none; flex-shrink: 0; }
+        .vs-logo-name { color: #fff; }
+        .vs-logo-name span { color: #2563EB; }
+        .vs-topbar-divider { width: 1px; height: 20px; background: ${DS.shellBorder}; margin: 0 12px; flex-shrink: 0; }
+        .vs-breadcrumb { display: flex; align-items: center; gap: 6px; font-size: 13px; flex: 1; min-width: 0; overflow: hidden; }
+        .vs-breadcrumb a { color: rgba(255,255,255,0.45); text-decoration: none; flex-shrink: 0; white-space: nowrap; }
+        .vs-breadcrumb a:hover { color: rgba(255,255,255,0.8); }
+        .vs-breadcrumb-sep { color: rgba(255,255,255,0.2); flex-shrink: 0; }
+        .vs-breadcrumb-current { color: rgba(255,255,255,0.85); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .vs-topbar-right { flex-shrink: 0; margin-left: 8px; display: flex; align-items: center; gap: 8px; }
+        .vs-save-status { font-size: 11px; color: rgba(255,255,255,0.30); font-family: ${FONT.mono}; white-space: nowrap; }
+
+        /* ── Content ── */
+        .vs-content { max-width: 720px; margin: 0 auto; padding: 20px 16px 80px; display: flex; flex-direction: column; gap: 14px; }
+
+        /* ── Page title ── */
+        .vs-page-title { font-family: ${FONT.head}; font-weight: 800; font-size: 20px; color: ${DS.text1}; letter-spacing: -0.3px; }
+        .vs-page-sub { font-size: 13px; color: ${DS.text3}; margin-top: 2px; }
+
+        /* ── Card ── */
         .vs-card { background: ${DS.card}; border: 1px solid ${DS.border}; border-radius: ${R.xl}px; box-shadow: ${DS.cardShadow}; overflow: hidden; }
-        .vs-card-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid ${DS.divider}; gap: 12px; flex-wrap: wrap; }
+        .vs-card-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid ${DS.divider}; gap: 10px; flex-wrap: wrap; }
         .vs-card-title { font-family: ${FONT.head}; font-weight: 700; font-size: 14px; color: ${DS.text1}; display: flex; align-items: center; gap: 8px; }
-        .vs-card-body { padding: 20px; }
-        .vs-badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 20px; font-family: ${FONT.head}; font-weight: 600; font-size: 11px; letter-spacing: 0.3px; white-space: nowrap; }
+        .vs-card-body { padding: 16px; }
+
+        /* ── Badge ── */
+        .vs-badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 20px; font-family: ${FONT.head}; font-weight: 600; font-size: 11px; white-space: nowrap; }
         .vs-badge-blue  { background: ${DS.blueMid};    color: ${DS.blue};  border: 1px solid ${DS.blueLight}; }
         .vs-badge-amber { background: ${DS.amberLight}; color: ${DS.amber}; border: 1px solid ${DS.amberMid}; }
         .vs-badge-green { background: ${DS.greenLight}; color: ${DS.green}; border: 1px solid #A7F3D0; }
         .vs-badge-gray  { background: ${DS.divider};    color: ${DS.text3}; border: 1px solid ${DS.border}; }
-        .vs-table { width: 100%; border-collapse: collapse; }
-        .vs-table th { padding: 10px 16px; background: ${DS.divider}; font-family: ${FONT.head}; font-weight: 700; font-size: 11px; letter-spacing: 0.6px; text-transform: uppercase; color: ${DS.text3}; text-align: left; border-bottom: 1px solid ${DS.border}; white-space: nowrap; }
-        .vs-table th.right { text-align: right; }
-        .vs-table td { padding: 12px 16px; border-bottom: 1px solid ${DS.divider}; font-size: 13.5px; color: ${DS.text1}; vertical-align: top; }
-        .vs-table td.right { text-align: right; }
-        .vs-table td.mono  { font-family: ${FONT.mono}; font-size: 13px; }
-        .vs-table td.muted { color: ${DS.text3}; font-size: 12px; }
-        .vs-table tr:last-child td { border-bottom: none; }
-        .vs-table tr:nth-child(even) td { background: ${DS.divider}; }
-        .vs-table .item-name { font-weight: 600; color: ${DS.text1}; line-height: 1.3; }
-        .vs-table .item-note { font-size: 11.5px; color: ${DS.text3}; margin-top: 2px; font-family: ${FONT.mono}; }
-        .vs-cat-header { padding: 8px 16px; background: ${DS.divider}; font-family: ${FONT.head}; font-weight: 700; font-size: 10.5px; letter-spacing: 0.8px; text-transform: uppercase; color: ${DS.text3}; border-top: 1px solid ${DS.border}; border-bottom: 1px solid ${DS.border}; }
-        .vs-stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        .vs-stat { padding: 16px; border-radius: ${R.lg}px; border: 1px solid ${DS.border}; background: ${DS.card}; }
-        .vs-stat-label { font-family: ${FONT.head}; font-weight: 600; font-size: 11px; letter-spacing: 0.4px; text-transform: uppercase; color: ${DS.text3}; }
-        .vs-stat-value { font-family: ${FONT.mono}; font-weight: 500; font-size: 22px; color: ${DS.text1}; margin-top: 6px; letter-spacing: -0.5px; }
-        .vs-stat-sub { font-size: 11px; color: ${DS.text3}; margin-top: 4px; font-family: ${FONT.body}; }
-        .vs-stat-amber .vs-stat-value { color: ${DS.amber}; }
-        .vs-stat-blue  .vs-stat-value { color: ${DS.blue}; }
-        .vs-total-card { grid-column: 1 / -1; padding: 20px 24px; border-radius: ${R.lg}px; background: linear-gradient(135deg, ${DS.shell} 0%, #1a2744 100%); border: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
-        .vs-total-label { font-family: ${FONT.head}; font-weight: 700; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.45); }
-        .vs-total-value { font-family: ${FONT.mono}; font-size: 36px; font-weight: 500; color: #fff; letter-spacing: -1px; margin-top: 6px; }
-        .vs-total-meta { font-size: 12px; color: rgba(255,255,255,0.30); font-family: ${FONT.body}; margin-top: 6px; }
+
+        /* ── Progress ── */
         .vs-progress-track { width: 100%; height: 3px; background: ${DS.divider}; border-radius: 99px; overflow: hidden; margin-top: 10px; }
         .vs-progress-fill { height: 100%; background: linear-gradient(90deg, ${DS.blue}, #60a5fa); border-radius: 99px; transition: width 200ms ease; }
-        textarea:focus, input:focus { border-color: ${DS.blue} !important; box-shadow: 0 0 0 3px rgba(37,99,235,0.12) !important; }
-        .vs-settings-row { display: flex; gap: 20px; align-items: flex-end; flex-wrap: wrap; }
-        .vs-setting-field { display: flex; flex-direction: column; gap: 5px; }
+
+        /* ── Settings row ── */
+        .vs-settings-row { display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; }
+        .vs-setting-field { display: flex; flex-direction: column; gap: 4px; }
         .vs-setting-label { font-family: ${FONT.head}; font-weight: 600; font-size: 11px; letter-spacing: 0.4px; text-transform: uppercase; color: ${DS.text3}; }
-        .vs-setting-input-row { display: flex; align-items: center; gap: 6px; }
+        .vs-setting-input-row { display: flex; align-items: center; gap: 5px; }
         .vs-setting-suffix { font-size: 12px; color: ${DS.text3}; font-family: ${FONT.mono}; }
-        .vs-assumption { display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; color: ${DS.text2}; line-height: 1.5; padding: 6px 0; border-bottom: 1px solid ${DS.divider}; }
+
+        /* ── Materials table ── */
+        .vs-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .vs-table th { padding: 8px 12px; background: ${DS.divider}; font-family: ${FONT.head}; font-weight: 700; font-size: 10.5px; letter-spacing: 0.6px; text-transform: uppercase; color: ${DS.text3}; text-align: left; border-bottom: 1px solid ${DS.border}; white-space: nowrap; }
+        .vs-table th.r { text-align: right; }
+        .vs-table td { padding: 10px 12px; border-bottom: 1px solid ${DS.divider}; color: ${DS.text1}; vertical-align: top; }
+        .vs-table td.r { text-align: right; }
+        .vs-table td.mono { font-family: ${FONT.mono}; font-size: 12.5px; }
+        .vs-table td.muted { color: ${DS.text3}; }
+        .vs-table tr:last-child td { border-bottom: none; }
+        .vs-table tr:nth-child(even) td { background: ${DS.divider}; }
+        .vs-item-name { font-weight: 600; line-height: 1.3; }
+        .vs-item-note { font-size: 11px; color: ${DS.text3}; margin-top: 2px; font-family: ${FONT.mono}; }
+        .vs-cat-row td { padding: 6px 12px; background: ${DS.divider}; font-family: ${FONT.head}; font-weight: 700; font-size: 10px; letter-spacing: 0.8px; text-transform: uppercase; color: ${DS.text3}; border-top: 1px solid ${DS.border}; border-bottom: 1px solid ${DS.border}; }
+
+        /* ── Assumption ── */
+        .vs-assumption { display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; color: ${DS.text2}; line-height: 1.5; padding: 5px 0; border-bottom: 1px solid ${DS.divider}; }
         .vs-assumption:last-child { border-bottom: none; }
         .vs-assumption-dot { width: 5px; height: 5px; border-radius: 50%; background: ${DS.blue}; flex-shrink: 0; margin-top: 7px; }
-        .vs-status-error { display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px; border-radius: ${R.sm}px; background: ${DS.redLight}; color: ${DS.red}; font-size: 12px; font-weight: 500; font-family: ${FONT.body}; border: 1px solid #FCA5A5; }
+
+        /* ── Totals summary ── */
+        .vs-totals-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+        .vs-total-item { padding: 12px 14px; border-radius: ${R.lg}px; border: 1px solid ${DS.border}; background: ${DS.card}; }
+        .vs-total-item-label { font-family: ${FONT.head}; font-weight: 600; font-size: 10.5px; letter-spacing: 0.4px; text-transform: uppercase; color: ${DS.text3}; }
+        .vs-total-item-value { font-family: ${FONT.mono}; font-weight: 500; font-size: 18px; color: ${DS.text1}; margin-top: 4px; letter-spacing: -0.3px; }
+        .vs-total-item-value.amber { color: ${DS.amber}; }
+        .vs-total-item-value.blue  { color: ${DS.blue}; }
+
+        /* ── Final total panel ── */
+        .vs-final-panel { background: linear-gradient(135deg, ${DS.shell} 0%, #1a2744 100%); border: 1px solid rgba(255,255,255,0.08); border-radius: ${R.xl}px; padding: 20px; margin-bottom: 16px; }
+        .vs-final-label { font-family: ${FONT.head}; font-weight: 700; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.45); margin-bottom: 4px; }
+        .vs-final-value { font-family: ${FONT.mono}; font-size: 40px; font-weight: 500; color: #fff; letter-spacing: -1.5px; line-height: 1; margin-bottom: 6px; }
+        .vs-final-meta { font-size: 12px; color: rgba(255,255,255,0.30); }
+
+        /* ── PDF buttons ── */
+        .vs-pdf-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .vs-pdf-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 14px 12px; border-radius: ${R.lg}px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.80); font-family: ${FONT.head}; font-weight: 600; font-size: 13px; cursor: pointer; transition: background 0.15s; text-align: center; }
+        .vs-pdf-btn:hover { background: rgba(255,255,255,0.10); }
+        .vs-pdf-btn-icon { font-size: 20px; margin-bottom: 2px; }
+        .vs-pdf-btn-sub { font-size: 10.5px; color: rgba(255,255,255,0.40); font-weight: 400; }
+
+        /* ── Status ── */
+        .vs-status-error { display: inline-flex; align-items: center; gap: 7px; padding: 8px 12px; border-radius: ${R.sm}px; background: ${DS.redLight}; color: ${DS.red}; font-size: 13px; font-weight: 500; border: 1px solid #FCA5A5; }
         .vs-status-ok { font-size: 11px; color: ${DS.text3}; font-family: ${FONT.mono}; }
+
         @keyframes vs-spin { to { transform: rotate(360deg); } }
-        .vs-spinner { width: 13px; height: 13px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: vs-spin 0.7s linear infinite; flex-shrink: 0; }
-        @media (max-width: 640px) { .vs-stat-grid { grid-template-columns: 1fr; } .vs-topbar-project, .vs-topbar-sub { display: none; } }
+        .vs-spinner { width: 14px; height: 14px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: vs-spin 0.7s linear infinite; flex-shrink: 0; }
+
+        textarea:focus, input:focus { border-color: ${DS.blue} !important; box-shadow: 0 0 0 3px rgba(37,99,235,0.12) !important; outline: none; }
+
+        /* ── Mobile ── */
+        @media (max-width: 600px) {
+          .vs-totals-grid { grid-template-columns: 1fr; }
+          .vs-final-value { font-size: 32px; }
+          .vs-table th.hide-mobile, .vs-table td.hide-mobile { display: none; }
+          .vs-settings-row { gap: 12px; }
+        }
       `}</style>
 
       <div className="vs-page">
+
+        {/* Topbar */}
         <nav className="vs-topbar">
-          <Link href="/" className="vs-topbar-logo">
-            <span className="vs-topbar-logo-dot" />
-            Voltscope
-          </Link>
+          <a href="/" className="vs-logo">
+            <LogoMark />
+            <span className="vs-logo-name">Sparc<span>Bid</span></span>
+          </a>
           <div className="vs-topbar-divider" />
-          <Link href={`/projects/${projectId}`} className="vs-topbar-back">
-            ← {project?.customerName ?? "Customer"}
-          </Link>
-          <div className="vs-topbar-divider" />
-          <div>
-            <div className="vs-topbar-project">{project?.customerName ?? "New Estimate"}</div>
-            <div className="vs-topbar-sub">{project?.jobType ?? "Estimate"}</div>
+          <div className="vs-breadcrumb">
+            <a href="/projects">Customers</a>
+            <span className="vs-breadcrumb-sep">›</span>
+            <a href={`/projects/${projectId}`}>{project?.customerName ?? "Customer"}</a>
+            <span className="vs-breadcrumb-sep">›</span>
+            <span className="vs-breadcrumb-current">Estimate</span>
           </div>
-          <div className="vs-topbar-actions">
+          <div className="vs-topbar-right">
             {uiState.isSaved && uiState.lastSavedAt && (
-              <span className="vs-topbar-save-status">
+              <span className="vs-save-status">
                 Saved {new Date(uiState.lastSavedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
               </span>
             )}
-            {estimate && totals && (
-              <>
-                <button type="button" onClick={() => handleDownloadPdf("proposal")} style={btnSecondary}>↑ Customer Proposal</button>
-                <button type="button" onClick={() => handleDownloadPdf("business")} style={btnSecondary}>↑ Business Copy</button>
-              </>
-            )}
             <button type="button" onClick={saveDraft} style={{
-              ...btnPrimary,
-              background:  savedConfirm ? `linear-gradient(135deg, ${DS.green} 0%, #047857 100%)` : `linear-gradient(135deg, ${DS.blue} 0%, ${DS.blueDark} 100%)`,
-              boxShadow:   savedConfirm ? "0 4px 14px rgba(5,150,105,0.35)" : DS.blueShadow,
-              transition:  "background 0.3s, box-shadow 0.3s",
+              ...btnPrimary, fontSize: 13, padding: "7px 14px",
+              background: savedConfirm ? `linear-gradient(135deg, ${DS.green} 0%, #047857 100%)` : `linear-gradient(135deg, ${DS.blue} 0%, ${DS.blueDark} 100%)`,
+              boxShadow: savedConfirm ? "0 4px 14px rgba(5,150,105,0.35)" : DS.blueShadow,
             }}>
               {savedConfirm ? "✓ Saved" : "Save"}
             </button>
@@ -479,18 +423,20 @@ export default function NewEstimatePage() {
         </nav>
 
         <div className="vs-content">
+
+          {/* Page heading */}
           <div>
             <div className="vs-page-title">New Estimate</div>
-            <div className="vs-page-sub">Describe the job scope to generate a priced estimate.</div>
+            <div className="vs-page-sub">{project?.customerName ?? "Describe the job scope to generate a priced estimate."}</div>
           </div>
 
-          {/* Job description */}
+          {/* ── Job description ── */}
           <div className="vs-card">
             <div className="vs-card-header">
               <span className="vs-card-title">Job Description</span>
-              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 {genState.status === "ready" && estimate?.generatedAt && (
-                  <span className="vs-status-ok">Generated {new Date(estimate.generatedAt).toLocaleString()}</span>
+                  <span className="vs-status-ok">Generated {new Date(estimate.generatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                 )}
                 {genState.status === "ready" && (
                   <button type="button" onClick={clearEstimate} style={btnGhost}>✕ Clear</button>
@@ -501,18 +447,18 @@ export default function NewEstimatePage() {
               <textarea
                 value={jobDescription}
                 onChange={(e) => { setJobDescription(e.target.value); if (genState.status === "error") setGenState({ status: "idle" }); }}
-                placeholder="Describe the scope — e.g. Install 60A EV charger in garage, 35ft EMT run, new 2-pole breaker. Or: 4,000 sq ft warehouse, 200A service, LED high bay lighting."
-                rows={5} style={inputStyle} disabled={genState.status === "loading"}
+                placeholder="e.g. Install 60A EV charger in garage, 35ft EMT run, new 2-pole breaker. Or: 4,000 sq ft warehouse, 200A service, LED high bay lighting."
+                rows={4} style={inputStyle} disabled={genState.status === "loading"}
               />
               {genState.status === "loading" && (
                 <div className="vs-progress-track">
                   <div className="vs-progress-fill" style={{ width: `${progress}%` }} />
                 </div>
               )}
-              <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 12, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 12, flexWrap: "wrap" }}>
                 <button type="button" onClick={handleGenerate} disabled={!canGenerate}
-                  style={{ ...btnPrimary, opacity: canGenerate ? 1 : 0.45, cursor: canGenerate ? "pointer" : "not-allowed" }}>
-                  {genState.status === "loading" ? <><span className="vs-spinner" /> Generating…</> : "⚡  Generate Estimate"}
+                  style={{ ...btnPrimary, opacity: canGenerate ? 1 : 0.45, cursor: canGenerate ? "pointer" : "not-allowed", fontSize: 14 }}>
+                  {genState.status === "loading" ? <><span className="vs-spinner" /> Generating…</> : "Generate Estimate"}
                 </button>
                 {genState.status === "error" && <span className="vs-status-error">⚠ {genState.msg}</span>}
               </div>
@@ -522,7 +468,7 @@ export default function NewEstimatePage() {
             </div>
           </div>
 
-          {/* Scope summary */}
+          {/* ── Scope summary ── */}
           {estimate && (
             <div className="vs-card">
               <div className="vs-card-header">
@@ -533,21 +479,19 @@ export default function NewEstimatePage() {
                 </div>
               </div>
               <div className="vs-card-body">
-                <p style={{ fontSize: 14, color: DS.text2, lineHeight: 1.6, marginBottom: 12 }}>{estimate.summary}</p>
-                {estimate.assumptions.length > 0 && (
-                  <div>
-                    {estimate.assumptions.map((a, i) => (
-                      <div key={i} className="vs-assumption">
-                        <span className="vs-assumption-dot" />{a}
-                      </div>
-                    ))}
+                <p style={{ fontSize: 14, color: DS.text2, lineHeight: 1.6, marginBottom: estimate.assumptions.length > 0 ? 12 : 0 }}>
+                  {estimate.summary}
+                </p>
+                {estimate.assumptions.length > 0 && estimate.assumptions.map((a, i) => (
+                  <div key={i} className="vs-assumption">
+                    <span className="vs-assumption-dot" />{a}
                   </div>
-                )}
+                ))}
               </div>
             </div>
           )}
 
-          {/* Pricing settings */}
+          {/* ── Pricing settings ── */}
           {estimate && (
             <div className="vs-card">
               <div className="vs-card-header">
@@ -557,7 +501,7 @@ export default function NewEstimatePage() {
               <div className="vs-card-body">
                 <div className="vs-settings-row">
                   {[
-                    { label: "Labor Rate", value: laborRate, set: setLaborRate, suffix: "/ hr" },
+                    { label: "Labor Rate", value: laborRate, set: setLaborRate, suffix: "/hr" },
                     { label: "Markup",     value: markupPct, set: setMarkupPct, suffix: "%" },
                     { label: "Permit Fee", value: permitFee, set: setPermitFee, suffix: "$" },
                   ].map(({ label, value, set, suffix }) => (
@@ -571,15 +515,12 @@ export default function NewEstimatePage() {
                       </div>
                     </div>
                   ))}
-                  <div style={{ marginLeft: "auto" }}>
-                    <button type="button" onClick={saveDraft} style={btnGhost}>{savedConfirm ? "✓ Saved" : "Save"}</button>
-                  </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Materials */}
+          {/* ── Materials table ── */}
           {estimate && materialLines.length > 0 && (
             <div className="vs-card">
               <div className="vs-card-header">
@@ -588,7 +529,7 @@ export default function NewEstimatePage() {
                   <span style={{ fontFamily: FONT.mono, fontWeight: 400, fontSize: 12, color: DS.text3 }}>{materialLines.length} items</span>
                 </span>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <span className="vs-badge vs-badge-blue">AI Priced</span>
+                  <span className="vs-badge vs-badge-blue">Smart Priced</span>
                   {materialLines.length > PREVIEW && (
                     <button type="button" onClick={() => setShowAllMaterials(s => !s)} style={btnGhost}>
                       {showAllMaterials ? "Show less" : `Show all ${materialLines.length}`}
@@ -599,11 +540,11 @@ export default function NewEstimatePage() {
               <table className="vs-table">
                 <thead>
                   <tr>
-                    <th style={{ width: "44%" }}>Item</th>
-                    <th className="right">Qty</th>
-                    <th className="right">Unit</th>
-                    <th className="right">Unit Cost</th>
-                    <th className="right">Total</th>
+                    <th style={{ width: "46%" }}>Item</th>
+                    <th className="r hide-mobile">Qty</th>
+                    <th className="r hide-mobile">Unit</th>
+                    <th className="r">Unit Cost</th>
+                    <th className="r">Total</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -614,37 +555,31 @@ export default function NewEstimatePage() {
                       ])
                     : visibleMats.map((m, i) => ({ type: "row", m, key: `row-${i}` } as const))
                   ).map((item) => {
-                    if (item.type === "cat") {
-                      return (
-                        <tr key={`cat-${item.cat}`}>
-                          <td colSpan={5} className="vs-cat-header" style={{ padding: "8px 16px" }}>
-                            {CATEGORY_LABEL[item.cat] ?? item.cat}
-                          </td>
-                        </tr>
-                      );
-                    }
+                    if (item.type === "cat") return (
+                      <tr key={`cat-${item.cat}`}><td colSpan={5} className="vs-cat-row">{CATEGORY_LABEL[item.cat] ?? item.cat}</td></tr>
+                    );
                     const { m } = item;
                     return (
                       <tr key={item.key}>
-                        <td><div className="item-name">{m.item}</div>{m.notes && <div className="item-note">{m.notes}</div>}</td>
-                        <td className="right mono">{m.qty}</td>
-                        <td className="right mono muted">{m.unit}</td>
-                        <td className="right mono muted">${fmt(m.unitCost)}</td>
-                        <td className="right mono" style={{ fontWeight: 600 }}>${fmt(m.lineTotal)}</td>
+                        <td><div className="vs-item-name">{m.item}</div>{m.notes && <div className="vs-item-note">{m.notes}</div>}</td>
+                        <td className="r mono hide-mobile">{m.qty}</td>
+                        <td className="r mono muted hide-mobile">{m.unit}</td>
+                        <td className="r mono muted">${fmt(m.unitCost)}</td>
+                        <td className="r mono" style={{ fontWeight: 600 }}>${fmt(m.lineTotal)}</td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
               {!showAllMaterials && !isAssembly && hiddenCount > 0 && (
-                <div style={{ padding: "10px 16px", fontSize: 12, color: DS.text3, borderTop: `1px solid ${DS.divider}` }}>
+                <div style={{ padding: "8px 12px", fontSize: 12, color: DS.text3, borderTop: `1px solid ${DS.divider}` }}>
                   Showing {visibleMats.length} of {materialLines.length} — {hiddenCount} more hidden
                 </div>
               )}
             </div>
           )}
 
-          {/* Labor */}
+          {/* ── Labor table ── */}
           {estimate && estimate.labor.length > 0 && (
             <div className="vs-card">
               <div className="vs-card-header">
@@ -657,19 +592,19 @@ export default function NewEstimatePage() {
               <table className="vs-table">
                 <thead>
                   <tr>
-                    <th style={{ width: "58%" }}>Task</th>
-                    <th className="right">Hours</th>
-                    <th className="right">Rate</th>
-                    <th className="right">Total</th>
+                    <th>Task</th>
+                    <th className="r hide-mobile">Hours</th>
+                    <th className="r hide-mobile">Rate</th>
+                    <th className="r">Total</th>
                   </tr>
                 </thead>
                 <tbody>
                   {estimate.labor.map((l, i) => (
                     <tr key={i}>
                       <td style={{ fontWeight: 500 }}>{l.description}</td>
-                      <td className="right mono">{l.hours}</td>
-                      <td className="right mono muted">${laborRate}/hr</td>
-                      <td className="right mono" style={{ fontWeight: 600, color: DS.amber }}>${fmt(r2(l.hours * laborRate))}</td>
+                      <td className="r mono hide-mobile">{l.hours}</td>
+                      <td className="r mono muted hide-mobile">${laborRate}/hr</td>
+                      <td className="r mono" style={{ fontWeight: 600, color: DS.amber }}>${fmt(r2(l.hours * laborRate))}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -677,50 +612,67 @@ export default function NewEstimatePage() {
             </div>
           )}
 
-          {/* Totals */}
+          {/* ── Totals + PDF ── */}
           {totals && estimate && (
             <div className="vs-card">
-              <div className="vs-card-header"><span className="vs-card-title">Summary</span></div>
+              <div className="vs-card-header">
+                <span className="vs-card-title">Summary</span>
+              </div>
               <div className="vs-card-body">
-                <div className="vs-stat-grid">
-                  <div className="vs-stat">
-                    <div className="vs-stat-label">Material Total</div>
-                    <div className="vs-stat-value">${fmt(totals.materialTotal)}</div>
-                    <div className="vs-stat-sub">{materialLines.length} line items</div>
+
+                {/* Breakdown grid */}
+                <div className="vs-totals-grid">
+                  <div className="vs-total-item">
+                    <div className="vs-total-item-label">Materials</div>
+                    <div className="vs-total-item-value">${fmt(totals.materialTotal)}</div>
                   </div>
-                  <div className="vs-stat vs-stat-amber">
-                    <div className="vs-stat-label">Labor Total</div>
-                    <div className="vs-stat-value">${fmt(totals.laborTotal)}</div>
-                    <div className="vs-stat-sub">{estimate.laborHours} hrs @ ${laborRate}/hr</div>
+                  <div className="vs-total-item">
+                    <div className="vs-total-item-label">Labor</div>
+                    <div className="vs-total-item-value amber">${fmt(totals.laborTotal)}</div>
                   </div>
-                  <div className="vs-stat">
-                    <div className="vs-stat-label">Subtotal</div>
-                    <div className="vs-stat-value">${fmt(totals.subtotal)}</div>
-                    <div className="vs-stat-sub">{permitFee > 0 ? `Includes permit $${fmt(permitFee)}` : "Before markup"}</div>
+                  <div className="vs-total-item">
+                    <div className="vs-total-item-label">Subtotal</div>
+                    <div className="vs-total-item-value">${fmt(totals.subtotal)}</div>
                   </div>
-                  <div className="vs-stat vs-stat-blue">
-                    <div className="vs-stat-label">Markup ({markupPct}%)</div>
-                    <div className="vs-stat-value">${fmt(totals.markup)}</div>
-                    <div className="vs-stat-sub">Profit margin</div>
+                  <div className="vs-total-item">
+                    <div className="vs-total-item-label">Markup ({markupPct}%)</div>
+                    <div className="vs-total-item-value blue">${fmt(totals.markup)}</div>
                   </div>
-                  <div className="vs-total-card">
-                    <div>
-                      <div className="vs-total-label">Total Price to Customer</div>
-                      <div className="vs-total-value">${fmt(totals.finalTotal)}</div>
-                      <div className="vs-total-meta">
-                        {markupPct}% markup
-                        {estimate.sqft && totals.ratePerSqft && ` · ${estimate.sqft.toLocaleString()} sq ft · $${totals.ratePerSqft.toFixed(2)}/sq ft`}
-                      </div>
+                </div>
+
+                {/* Final total + PDF buttons together */}
+                <div className="vs-final-panel">
+                  <div className="vs-final-label">Total Price to Customer</div>
+                  <div className="vs-final-value">${fmt(totals.finalTotal)}</div>
+                  <div className="vs-final-meta">
+                    {markupPct}% markup
+                    {estimate.sqft && totals.ratePerSqft && ` · ${estimate.sqft.toLocaleString()} sq ft · $${totals.ratePerSqft.toFixed(2)}/sq ft`}
+                  </div>
+
+                  {/* PDF buttons live right under the total */}
+                  <div style={{ marginTop: 16, borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 16 }}>
+                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", fontFamily: FONT.head, fontWeight: 600, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 10 }}>
+                      Download PDF
                     </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      <button type="button" onClick={() => handleDownloadPdf("proposal")} style={{ ...btnPrimary, fontSize: 12 }}>↑ Customer Proposal</button>
-                      <button type="button" onClick={() => handleDownloadPdf("business")} style={{ ...btnSecondary, fontSize: 12, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.75)" }}>↑ Business Copy</button>
+                    <div className="vs-pdf-row">
+                      <button type="button" className="vs-pdf-btn" onClick={() => handleDownloadPdf("proposal")}>
+                        <span className="vs-pdf-btn-icon">📄</span>
+                        Customer Proposal
+                        <span className="vs-pdf-btn-sub">Scope only · no costs</span>
+                      </button>
+                      <button type="button" className="vs-pdf-btn" onClick={() => handleDownloadPdf("business")}>
+                        <span className="vs-pdf-btn-icon">📊</span>
+                        Business Copy
+                        <span className="vs-pdf-btn-sub">Full breakdown · private</span>
+                      </button>
                     </div>
                   </div>
                 </div>
+
               </div>
             </div>
           )}
+
         </div>
       </div>
     </>

@@ -122,19 +122,21 @@ export default function AccountPage() {
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         body { background: ${DS.pageBg}; }
         .vs-page { min-height: 100vh; background: ${DS.pageBg}; font-family: ${FONT.body}; color: ${DS.text1}; }
-        .vs-topbar { position: sticky; top: 0; z-index: 100; height: 56px; background: ${DS.shell}; border-bottom: 1px solid ${DS.shellBorder}; display: flex; align-items: center; padding: 0 24px; gap: 16px; }
-        .vs-logo { font-family: ${FONT.head}; font-weight: 800; font-size: 16px; color: #fff; letter-spacing: -0.3px; display: flex; align-items: center; gap: 9px; text-decoration: none; }
-        .vs-logo-mark { width: 30px; height: 30px; border-radius: ${R.md}px; background: linear-gradient(135deg, ${DS.blue} 0%, ${DS.blueDark} 100%); display: flex; align-items: center; justify-content: center; font-size: 15px; box-shadow: 0 4px 12px rgba(37,99,235,0.45); }
-        .vs-topbar-divider { width: 1px; height: 20px; background: ${DS.shellBorder}; }
-        .vs-topbar-nav { display: flex; align-items: center; gap: 4px; }
-        .vs-nav-link { font-family: ${FONT.body}; font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.50); text-decoration: none; padding: 5px 10px; border-radius: ${R.sm}px; transition: background 0.15s, color 0.15s; }
+        .vs-topbar { position: sticky; top: 0; z-index: 100; height: 56px; background: ${DS.shell}; border-bottom: 1px solid ${DS.shellBorder}; display: flex; align-items: center; padding: 0 16px; gap: 0; overflow: hidden; }
+        .vs-logo { font-family: ${FONT.head}; font-weight: 800; font-size: 16px; color: #fff; letter-spacing: -0.3px; display: flex; align-items: center; gap: 8px; text-decoration: none; flex-shrink: 0; }
+        .vs-logo-name { color: #fff; }
+        .vs-logo-name span { color: #2563EB; }
+        .vs-logo-mark { width: 30px; height: 30px; border-radius: ${R.md}px; background: #0B0F1A; border: 1px solid rgba(37,99,235,0.4); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .vs-topbar-divider { width: 1px; height: 20px; background: ${DS.shellBorder}; margin: 0 12px; flex-shrink: 0; }
+        .vs-topbar-nav { display: flex; align-items: center; gap: 2px; flex: 1; min-width: 0; }
+        .vs-nav-link { font-family: ${FONT.body}; font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.50); text-decoration: none; padding: 5px 8px; border-radius: ${R.sm}px; transition: background 0.15s, color 0.15s; white-space: nowrap; }
         .vs-nav-link:hover { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.85); }
         .vs-nav-link.active { color: rgba(255,255,255,0.90); background: rgba(255,255,255,0.08); }
-        .vs-topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
-        .vs-avatar { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, ${DS.blue} 0%, #7c3aed 100%); display: flex; align-items: center; justify-content: center; font-family: ${FONT.head}; font-weight: 700; font-size: 11px; color: #fff; flex-shrink: 0; }
-        .vs-content { max-width: 720px; margin: 0 auto; padding: 36px 20px 64px; }
-        .vs-page-title { font-family: ${FONT.head}; font-weight: 800; font-size: 24px; color: ${DS.text1}; letter-spacing: -0.5px; margin-bottom: 4px; }
-        .vs-page-sub { font-size: 13.5px; color: ${DS.text3}; margin-bottom: 32px; }
+        .vs-topbar-right { flex-shrink: 0; margin-left: 8px; }
+        .vs-avatar { width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, ${DS.blue} 0%, #7c3aed 100%); display: flex; align-items: center; justify-content: center; font-family: ${FONT.head}; font-weight: 700; font-size: 11px; color: #fff; flex-shrink: 0; }
+        .vs-content { max-width: 720px; margin: 0 auto; padding: 24px 16px 60px; }
+        .vs-page-title { font-family: ${FONT.head}; font-weight: 800; font-size: 22px; color: ${DS.text1}; letter-spacing: -0.4px; margin-bottom: 3px; }
+        .vs-page-sub { font-size: 13px; color: ${DS.text3}; margin-bottom: 28px; }
         .vs-section { margin-bottom: 28px; }
         .vs-section-label { font-family: ${FONT.head}; font-weight: 700; font-size: 11px; letter-spacing: 0.6px; text-transform: uppercase; color: ${DS.text3}; margin-bottom: 10px; }
         .vs-card { background: ${DS.card}; border: 1px solid ${DS.border}; border-radius: ${R.xl}px; box-shadow: ${DS.cardShadow}; overflow: hidden; }
@@ -169,7 +171,7 @@ export default function AccountPage() {
         .vs-danger-sub { font-size: 12.5px; color: ${DS.text3}; }
         @keyframes vs-spin { to { transform: rotate(360deg); } }
         .vs-spinner { width: 13px; height: 13px; border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff; border-radius: 50%; animation: vs-spin 0.7s linear infinite; }
-        @media (max-width: 640px) { .vs-profile-grid { grid-template-columns: 1fr; } .vs-profile-display { grid-template-columns: 1fr; } }
+        @media (max-width: 640px) { .vs-profile-grid { grid-template-columns: 1fr; } .vs-profile-display { grid-template-columns: 1fr; } .vs-nav-link-hide { display: none; } }
       `}</style>
 
       <div className="vs-page">
@@ -177,13 +179,21 @@ export default function AccountPage() {
         {/* Topbar */}
         <nav className="vs-topbar">
           <a href="/" className="vs-logo">
-            <div className="vs-logo-mark">⚡</div>
-            Voltscope
+            <div className="vs-logo-mark">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <line x1="5" y1="17" x2="5" y2="9" stroke="#2563EB" strokeWidth="2.2" strokeLinecap="round"/>
+                <line x1="15" y1="17" x2="15" y2="9" stroke="#2563EB" strokeWidth="2.2" strokeLinecap="round"/>
+                <path d="M5 9 Q10 2 15 9" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round"/>
+                <circle cx="8" cy="6" r="1.2" fill="#93c5fd"/>
+                <circle cx="12" cy="6" r="1.2" fill="#93c5fd"/>
+              </svg>
+            </div>
+            <span className="vs-logo-name">Sparc<span>Bid</span></span>
           </a>
           <div className="vs-topbar-divider" />
           <div className="vs-topbar-nav">
-            <a href="/dashboard" className="vs-nav-link">Dashboard</a>
-            <a href="/projects"  className="vs-nav-link">Customers</a>
+            <a href="/dashboard" className="vs-nav-link vs-nav-link-hide">Dashboard</a>
+            <a href="/projects"  className="vs-nav-link vs-nav-link-hide">Customers</a>
             <a href="/account"   className="vs-nav-link active">Account</a>
           </div>
           <div className="vs-topbar-right">

@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { loadProfileFromDB, saveProfile, type UserProfile } from "../lib/userProfile";import { supabase } from "../lib/supabase";
+import { loadProfileFromDB, saveProfile, type UserProfile } from "../lib/userProfile";
+import { supabase } from "../lib/supabase";
+
 const DS = {
   shell:        "#0B0F1A",
   shellBorder:  "rgba(255,255,255,0.07)",
@@ -39,23 +41,20 @@ function defaultProfile(): UserProfile {
 }
 
 export default function DashboardPage() {
-  const [profile,      setProfile]      = useState<UserProfile>(defaultProfile());
-  const [editing,      setEditing]      = useState(false);
-  const [draft,        setDraft]        = useState<UserProfile>(defaultProfile());
-  const [savedConfirm, setSavedConfirm] = useState(false);
+  const [profile,       setProfile]       = useState<UserProfile>(defaultProfile());
+  const [editing,       setEditing]       = useState(false);
+  const [draft,         setDraft]         = useState<UserProfile>(defaultProfile());
+  const [savedConfirm,  setSavedConfirm]  = useState(false);
   const [loading,       setLoading]       = useState(true);
   const [customerCount, setCustomerCount] = useState<number | null>(null);
   const [estimateCount, setEstimateCount] = useState<number | null>(null);
 
-  // Load profile from Supabase on mount
   useEffect(() => {
     async function load() {
       const p = await loadProfileFromDB();
       setProfile(p);
       setDraft(p);
       if (!p.company) setEditing(true);
-
-      // Fetch real counts from Supabase
       const [{ count: cCount }, { count: eCount }] = await Promise.all([
         supabase.from("customers").select("*", { count: "exact", head: true }),
         supabase.from("estimates").select("*",  { count: "exact", head: true }),
@@ -81,6 +80,8 @@ export default function DashboardPage() {
   }
 
   const isProfileComplete = !!(profile.company && profile.phone && profile.email);
+  const firstName = profile.name ? profile.name.split(" ")[0] : "";
+  const initial   = profile.name ? profile.name.charAt(0).toUpperCase() : "?";
 
   return (
     <>
@@ -88,94 +89,271 @@ export default function DashboardPage() {
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         body { background: ${DS.pageBg}; }
-        .vs-page { min-height: 100vh; background: ${DS.pageBg}; font-family: ${FONT.body}; }
-        .vs-topbar { position: sticky; top: 0; z-index: 100; height: 56px; background: ${DS.shell}; border-bottom: 1px solid ${DS.shellBorder}; display: flex; align-items: center; padding: 0 24px; gap: 16px; }
-        .vs-logo { font-family: ${FONT.head}; font-weight: 800; font-size: 16px; color: #fff; letter-spacing: -0.3px; display: flex; align-items: center; gap: 9px; text-decoration: none; }
-        .vs-logo-mark { width: 30px; height: 30px; border-radius: ${R.md}px; background: linear-gradient(135deg, ${DS.blue} 0%, ${DS.blueDark} 100%); display: flex; align-items: center; justify-content: center; font-size: 15px; box-shadow: 0 4px 12px rgba(37,99,235,0.45); }
-        .vs-topbar-divider { width: 1px; height: 20px; background: ${DS.shellBorder}; }
-        .vs-topbar-nav { display: flex; align-items: center; gap: 4px; }
-        .vs-topbar-link { font-family: ${FONT.body}; font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.50); text-decoration: none; padding: 5px 10px; border-radius: ${R.sm}px; transition: background 0.15s, color 0.15s; }
-        .vs-topbar-link:hover  { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.85); }
-        .vs-topbar-link.active { color: rgba(255,255,255,0.90); background: rgba(255,255,255,0.08); }
-        .vs-topbar-actions { margin-left: auto; display: flex; align-items: center; gap: 10px; }
-        .vs-topbar-user { font-family: ${FONT.head}; font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.65); }
-        .vs-topbar-avatar { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, ${DS.blue} 0%, #7c3aed 100%); display: flex; align-items: center; justify-content: center; font-family: ${FONT.head}; font-weight: 700; font-size: 12px; color: #fff; flex-shrink: 0; }
-        .vs-content { max-width: 900px; margin: 0 auto; padding: 32px 20px 64px; }
-        .vs-section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; gap: 12px; flex-wrap: wrap; }
-        .vs-section-title { font-family: ${FONT.head}; font-weight: 700; font-size: 13px; letter-spacing: 0.4px; text-transform: uppercase; color: ${DS.text3}; }
-        .vs-card { background: ${DS.card}; border: 1px solid ${DS.border}; border-radius: ${R.xl}px; box-shadow: ${DS.cardShadow}; overflow: hidden; }
-        .vs-card-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid ${DS.divider}; gap: 12px; flex-wrap: wrap; }
-        .vs-card-title { font-family: ${FONT.head}; font-weight: 700; font-size: 14px; color: ${DS.text1}; display: flex; align-items: center; gap: 8px; }
-        .vs-card-body { padding: 20px; }
-        .vs-stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 24px; }
-        .vs-stat { background: ${DS.card}; border: 1px solid ${DS.border}; border-radius: ${R.xl}px; box-shadow: ${DS.cardShadow}; padding: 18px 20px; }
-        .vs-stat-label { font-family: ${FONT.head}; font-weight: 600; font-size: 11px; letter-spacing: 0.5px; text-transform: uppercase; color: ${DS.text3}; margin-bottom: 8px; }
-        .vs-stat-value { font-family: ${FONT.mono}; font-size: 28px; font-weight: 500; color: ${DS.text1}; letter-spacing: -0.5px; }
-        .vs-stat-sub { font-size: 11px; color: ${DS.text3}; margin-top: 4px; }
-        .vs-actions-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
-        .vs-action-card { background: ${DS.card}; border: 1px solid ${DS.border}; border-radius: ${R.xl}px; box-shadow: ${DS.cardShadow}; padding: 20px; text-decoration: none; display: flex; align-items: flex-start; gap: 14px; transition: box-shadow 0.15s, border-color 0.15s, transform 0.15s; cursor: pointer; }
-        .vs-action-card:hover { box-shadow: ${DS.raisedShadow}; border-color: ${DS.blueMid}; transform: translateY(-1px); }
-        .vs-action-icon { width: 40px; height: 40px; border-radius: ${R.md}px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 19px; }
-        .vs-action-icon.blue  { background: ${DS.blueLight};  }
+
+        .vs-page { min-height: 100vh; background: ${DS.pageBg}; font-family: ${FONT.body}; color: ${DS.text1}; }
+
+        /* ── Topbar ── */
+        .vs-topbar {
+          position: sticky; top: 0; z-index: 100;
+          height: 56px; background: ${DS.shell};
+          border-bottom: 1px solid ${DS.shellBorder};
+          display: flex; align-items: center;
+          padding: 0 16px; gap: 0; overflow: hidden;
+        }
+        .vs-logo {
+          font-family: ${FONT.head}; font-weight: 800; font-size: 16px;
+          color: #fff; letter-spacing: -0.3px;
+          display: flex; align-items: center; gap: 8px;
+          text-decoration: none; flex-shrink: 0;
+        }
+        .vs-logo-name { color: #fff; }
+        .vs-logo-name span { color: #2563EB; }
+        .vs-logo-mark {
+          width: 30px; height: 30px; border-radius: ${R.md}px;
+          background: #0B0F1A; border: 1px solid rgba(37,99,235,0.4);
+          display: flex; align-items: center; justify-content: center;
+          flex-shrink: 0;
+        }
+        .vs-topbar-divider { width: 1px; height: 20px; background: ${DS.shellBorder}; margin: 0 12px; flex-shrink: 0; }
+        .vs-topbar-nav { display: flex; align-items: center; gap: 2px; flex: 1; min-width: 0; }
+        .vs-nav-link {
+          font-family: ${FONT.body}; font-size: 13px; font-weight: 500;
+          color: rgba(255,255,255,0.50); text-decoration: none;
+          padding: 5px 8px; border-radius: ${R.sm}px;
+          transition: background 0.15s, color 0.15s; white-space: nowrap;
+        }
+        .vs-nav-link:hover  { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.85); }
+        .vs-nav-link.active { color: rgba(255,255,255,0.90); background: rgba(255,255,255,0.08); }
+        .vs-topbar-right {
+          display: flex; align-items: center; gap: 8px;
+          flex-shrink: 0; margin-left: 8px;
+        }
+        .vs-topbar-user {
+          font-family: ${FONT.head}; font-size: 12px; font-weight: 600;
+          color: rgba(255,255,255,0.60); white-space: nowrap;
+          max-width: 100px; overflow: hidden; text-overflow: ellipsis;
+        }
+        .vs-avatar {
+          width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+          background: linear-gradient(135deg, ${DS.blue} 0%, #7c3aed 100%);
+          display: flex; align-items: center; justify-content: center;
+          font-family: ${FONT.head}; font-weight: 700; font-size: 11px; color: #fff;
+          text-decoration: none;
+        }
+
+        /* ── Content ── */
+        .vs-content { max-width: 860px; margin: 0 auto; padding: 28px 16px 60px; }
+
+        /* ── Welcome row with inline stats ── */
+        .vs-welcome-row {
+          display: flex; align-items: flex-start;
+          justify-content: space-between; gap: 16px;
+          margin-bottom: 24px; flex-wrap: wrap;
+        }
+        .vs-welcome-title {
+          font-family: ${FONT.head}; font-weight: 800; font-size: 22px;
+          color: ${DS.text1}; letter-spacing: -0.4px; margin-bottom: 3px;
+        }
+        .vs-welcome-sub { font-size: 13px; color: ${DS.text3}; }
+
+        /* ── Compact stat pills ── */
+        .vs-stat-pills {
+          display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+        }
+        .vs-stat-pill {
+          display: flex; align-items: center; gap: 6px;
+          padding: 6px 12px; border-radius: 20px;
+          background: ${DS.card}; border: 1px solid ${DS.border};
+          box-shadow: ${DS.cardShadow};
+        }
+        .vs-stat-pill-label {
+          font-family: ${FONT.head}; font-weight: 600; font-size: 11px;
+          color: ${DS.text3}; letter-spacing: 0.3px; text-transform: uppercase;
+        }
+        .vs-stat-pill-value {
+          font-family: ${FONT.mono}; font-weight: 600; font-size: 13px;
+          color: ${DS.text1};
+        }
+
+        /* ── Warning ── */
+        .vs-warning {
+          padding: 12px 16px; border-radius: ${R.md}px;
+          background: ${DS.amberLight}; border: 1px solid #FDE68A;
+          font-size: 13px; color: #92400E; line-height: 1.5;
+          display: flex; align-items: flex-start; gap: 10px;
+          margin-bottom: 20px;
+        }
+
+        /* ── Section heading ── */
+        .vs-section-head {
+          display: flex; align-items: center; justify-content: space-between;
+          margin-bottom: 12px; gap: 12px;
+        }
+        .vs-section-title {
+          font-family: ${FONT.head}; font-weight: 700; font-size: 11px;
+          letter-spacing: 0.6px; text-transform: uppercase; color: ${DS.text3};
+        }
+
+        /* ── Action cards ── */
+        .vs-actions-grid {
+          display: grid; grid-template-columns: 1fr 1fr;
+          gap: 12px; margin-bottom: 24px;
+        }
+        .vs-action-card {
+          background: ${DS.card}; border: 1px solid ${DS.border};
+          border-radius: ${R.xl}px; box-shadow: ${DS.cardShadow};
+          padding: 18px; text-decoration: none;
+          display: flex; align-items: flex-start; gap: 12px;
+          transition: box-shadow 0.15s, border-color 0.15s, transform 0.15s;
+        }
+        .vs-action-card:hover {
+          box-shadow: ${DS.raisedShadow}; border-color: ${DS.blueMid};
+          transform: translateY(-1px);
+        }
+        .vs-action-icon {
+          width: 38px; height: 38px; border-radius: ${R.md}px; flex-shrink: 0;
+          display: flex; align-items: center; justify-content: center; font-size: 18px;
+        }
+        .vs-action-icon.blue  { background: ${DS.blueLight}; }
         .vs-action-icon.amber { background: ${DS.amberLight}; }
-        .vs-action-title { font-family: ${FONT.head}; font-weight: 700; font-size: 14px; color: ${DS.text1}; margin-bottom: 4px; }
-        .vs-action-desc { font-size: 12.5px; color: ${DS.text3}; line-height: 1.5; }
-        .vs-profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-        .vs-profile-grid .full { grid-column: 1 / -1; }
-        .vs-field-label { display: block; font-family: ${FONT.head}; font-weight: 600; font-size: 11px; letter-spacing: 0.4px; text-transform: uppercase; color: ${DS.text2}; margin-bottom: 6px; }
-        .vs-input { width: 100%; padding: 10px 13px; border-radius: ${R.md}px; border: 1.5px solid ${DS.border}; font-family: ${FONT.body}; font-size: 14px; color: ${DS.text1}; background: ${DS.card}; outline: none; transition: border-color 0.15s, box-shadow 0.15s; }
+        .vs-action-title {
+          font-family: ${FONT.head}; font-weight: 700; font-size: 14px;
+          color: ${DS.text1}; margin-bottom: 3px;
+        }
+        .vs-action-desc { font-size: 12px; color: ${DS.text3}; line-height: 1.5; }
+
+        /* ── Card ── */
+        .vs-card {
+          background: ${DS.card}; border: 1px solid ${DS.border};
+          border-radius: ${R.xl}px; box-shadow: ${DS.cardShadow}; overflow: hidden;
+        }
+        .vs-card-header {
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 14px 18px; border-bottom: 1px solid ${DS.divider};
+          gap: 12px; flex-wrap: wrap;
+        }
+        .vs-card-title {
+          font-family: ${FONT.head}; font-weight: 700; font-size: 14px;
+          color: ${DS.text1}; display: flex; align-items: center; gap: 8px;
+        }
+        .vs-card-body { padding: 18px; }
+
+        /* ── Profile ── */
+        .vs-profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .vs-profile-display { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px; }
+        .vs-field-label {
+          display: block; font-family: ${FONT.head}; font-weight: 600;
+          font-size: 10.5px; letter-spacing: 0.4px; text-transform: uppercase;
+          color: ${DS.text2}; margin-bottom: 5px;
+        }
+        .vs-input {
+          width: 100%; padding: 9px 12px; border-radius: ${R.md}px;
+          border: 1.5px solid ${DS.border}; font-family: ${FONT.body};
+          font-size: 14px; color: ${DS.text1}; background: ${DS.card};
+          outline: none; transition: border-color 0.15s, box-shadow 0.15s;
+        }
         .vs-input:focus { border-color: ${DS.blue}; box-shadow: 0 0 0 3px rgba(37,99,235,0.11); }
-        .vs-input:disabled { background: ${DS.divider}; color: ${DS.text2}; cursor: default; }
-        .vs-profile-display { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; }
-        .vs-profile-field-label { font-family: ${FONT.head}; font-weight: 600; font-size: 10.5px; letter-spacing: 0.5px; text-transform: uppercase; color: ${DS.text3}; margin-bottom: 4px; }
-        .vs-profile-field-value { font-family: ${FONT.body}; font-size: 14px; color: ${DS.text1}; line-height: 1.4; }
-        .vs-profile-field-empty { font-size: 13px; color: ${DS.text3}; font-style: italic; }
-        .vs-warning { padding: 12px 16px; border-radius: ${R.md}px; background: ${DS.amberLight}; border: 1px solid #FDE68A; font-size: 13px; color: #92400E; line-height: 1.5; display: flex; align-items: flex-start; gap: 10px; margin-bottom: 24px; }
-        .vs-btn-primary { display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; border-radius: ${R.md}px; border: none; background: linear-gradient(135deg, ${DS.blue} 0%, ${DS.blueDark} 100%); color: #fff; font-family: ${FONT.head}; font-weight: 700; font-size: 13px; cursor: pointer; box-shadow: ${DS.blueShadow}; transition: opacity 0.15s; white-space: nowrap; }
-        .vs-btn-secondary { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: ${R.md}px; border: 1px solid ${DS.border}; background: ${DS.card}; color: ${DS.text1}; font-family: ${FONT.head}; font-weight: 600; font-size: 13px; cursor: pointer; box-shadow: ${DS.cardShadow}; white-space: nowrap; transition: background 0.15s; }
-        .vs-btn-secondary:hover { background: ${DS.divider}; }
-        .vs-btn-ghost { display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; border-radius: ${R.sm}px; border: 1px solid ${DS.border}; background: transparent; color: ${DS.text2}; font-family: ${FONT.body}; font-weight: 500; font-size: 12px; cursor: pointer; white-space: nowrap; }
-        .vs-badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 20px; font-family: ${FONT.head}; font-weight: 600; font-size: 11px; letter-spacing: 0.3px; white-space: nowrap; }
+        .vs-field-value { font-size: 14px; color: ${DS.text1}; line-height: 1.4; margin-top: 3px; }
+        .vs-field-empty { font-size: 13px; color: ${DS.text3}; font-style: italic; margin-top: 3px; }
+
+        /* ── Buttons ── */
+        .vs-btn-primary {
+          display: inline-flex; align-items: center; gap: 6px;
+          padding: 8px 16px; border-radius: ${R.md}px; border: none;
+          background: linear-gradient(135deg, ${DS.blue} 0%, ${DS.blueDark} 100%);
+          color: #fff; font-family: ${FONT.head}; font-weight: 700;
+          font-size: 13px; cursor: pointer; box-shadow: ${DS.blueShadow};
+          white-space: nowrap;
+        }
+        .vs-btn-secondary {
+          display: inline-flex; align-items: center; gap: 6px;
+          padding: 8px 14px; border-radius: ${R.md}px;
+          border: 1px solid ${DS.border}; background: ${DS.card};
+          color: ${DS.text1}; font-family: ${FONT.head}; font-weight: 600;
+          font-size: 13px; cursor: pointer; white-space: nowrap;
+        }
+        .vs-btn-ghost {
+          display: inline-flex; align-items: center; gap: 5px;
+          padding: 6px 12px; border-radius: ${R.sm}px;
+          border: 1px solid ${DS.border}; background: transparent;
+          color: ${DS.text2}; font-family: ${FONT.body}; font-weight: 500;
+          font-size: 12px; cursor: pointer;
+        }
+
+        /* ── Badge ── */
+        .vs-badge {
+          display: inline-flex; align-items: center; padding: 3px 9px;
+          border-radius: 20px; font-family: ${FONT.head}; font-weight: 600;
+          font-size: 11px; letter-spacing: 0.3px; white-space: nowrap;
+        }
         .vs-badge-green { background: ${DS.greenLight}; color: ${DS.green}; border: 1px solid #A7F3D0; }
         .vs-badge-amber { background: ${DS.amberLight}; color: ${DS.amber}; border: 1px solid #FDE68A; }
         .vs-badge-blue  { background: ${DS.blueLight};  color: ${DS.blue};  border: 1px solid ${DS.blueMid}; }
-        @media (max-width: 640px) { .vs-stat-row { grid-template-columns: 1fr; } .vs-actions-grid { grid-template-columns: 1fr; } .vs-profile-grid { grid-template-columns: 1fr; } .vs-profile-display { grid-template-columns: 1fr; } }
+
+        /* ── Mobile ── */
+        @media (max-width: 600px) {
+          .vs-topbar-user { display: none; }
+          .vs-welcome-row { flex-direction: column; gap: 10px; }
+          .vs-stat-pills { align-self: flex-start; }
+          .vs-actions-grid { grid-template-columns: 1fr; }
+          .vs-profile-grid { grid-template-columns: 1fr; }
+          .vs-profile-display { grid-template-columns: 1fr; }
+        }
       `}</style>
 
       <div className="vs-page">
 
+        {/* Topbar */}
         <nav className="vs-topbar">
           <a href="/" className="vs-logo">
-            <div className="vs-logo-mark">⚡</div>
-            Voltscope
+            <div className="vs-logo-mark">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <line x1="5" y1="17" x2="5" y2="9" stroke="#2563EB" strokeWidth="2.2" strokeLinecap="round"/>
+                <line x1="15" y1="17" x2="15" y2="9" stroke="#2563EB" strokeWidth="2.2" strokeLinecap="round"/>
+                <path d="M5 9 Q10 2 15 9" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round"/>
+                <circle cx="8" cy="6" r="1.2" fill="#93c5fd"/>
+                <circle cx="12" cy="6" r="1.2" fill="#93c5fd"/>
+              </svg>
+            </div>
+            <span className="vs-logo-name">Sparc<span>Bid</span></span>
           </a>
           <div className="vs-topbar-divider" />
           <div className="vs-topbar-nav">
-            <a href="/dashboard" className="vs-topbar-link active">Dashboard</a>
-            <a href="/projects"  className="vs-topbar-link">Customers</a>
+            <a href="/dashboard" className="vs-nav-link active">Dashboard</a>
+            <a href="/projects"  className="vs-nav-link">Customers</a>
           </div>
-          <div className="vs-topbar-actions">
+          <div className="vs-topbar-right">
             {profile.name && <span className="vs-topbar-user">{profile.name}</span>}
-            <a href="/account" style={{ textDecoration: "none" }}>
-              <div className="vs-topbar-avatar" title="Account settings">
-                {profile.name ? profile.name.charAt(0).toUpperCase() : "?"}
-              </div>
-            </a>
+            <a href="/account" className="vs-avatar" title="Account settings">{initial}</a>
           </div>
         </nav>
 
         <div className="vs-content">
 
-          {/* Welcome */}
-          <div style={{ marginBottom: 28 }}>
-            <h1 style={{ fontFamily: FONT.head, fontWeight: 800, fontSize: 24, color: DS.text1, letterSpacing: -0.5, marginBottom: 4 }}>
-              {loading ? "Loading…" : profile.name ? `Welcome back, ${profile.name.split(" ")[0]}.` : "Welcome to Voltscope."}
-            </h1>
-            <p style={{ fontSize: 14, color: DS.text3 }}>
-              {isProfileComplete
-                ? "Your profile is set up. Start a new estimate below."
-                : "Complete your company profile so it appears on your proposals."}
-            </p>
+          {/* Welcome + compact stats */}
+          <div className="vs-welcome-row">
+            <div>
+              <div className="vs-welcome-title">
+                {loading ? "Loading…" : firstName ? `Welcome back, ${firstName}.` : "Welcome to SparcBid."}
+              </div>
+              <div className="vs-welcome-sub">
+                {isProfileComplete
+                  ? "Your profile is set up. Start a new estimate below."
+                  : "Complete your company profile so it appears on your proposals."}
+              </div>
+            </div>
+            {!loading && (
+              <div className="vs-stat-pills">
+                <div className="vs-stat-pill">
+                  <span className="vs-stat-pill-label">Customers</span>
+                  <span className="vs-stat-pill-value">{customerCount ?? "—"}</span>
+                </div>
+                <div className="vs-stat-pill">
+                  <span className="vs-stat-pill-label">Estimates</span>
+                  <span className="vs-stat-pill-value">{estimateCount ?? "—"}</span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Warning */}
@@ -189,20 +367,6 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* Stats */}
-          <div className="vs-stat-row">
-            <div className="vs-stat">
-              <div className="vs-stat-label">Customers</div>
-              <div className="vs-stat-value">{customerCount ?? "—"}</div>
-              <div className="vs-stat-sub">total saved</div>
-            </div>
-            <div className="vs-stat">
-              <div className="vs-stat-label">Estimates</div>
-              <div className="vs-stat-value">{estimateCount ?? "—"}</div>
-              <div className="vs-stat-sub">total generated</div>
-            </div>
-          </div>
-
           {/* Quick actions */}
           <div className="vs-section-head">
             <span className="vs-section-title">Quick Actions</span>
@@ -210,7 +374,7 @@ export default function DashboardPage() {
           <div className="vs-actions-grid">
             {[
               { href: "/projects", icon: "📋", iconClass: "blue",  title: "Customers",    desc: "View all your customers and open existing estimates." },
-              { href: "/projects", icon: "⚡", iconClass: "amber", title: "New Estimate", desc: "Open a customer and generate a priced estimate with AI." },
+              { href: "/projects", icon: "⚡", iconClass: "amber", title: "New Estimate", desc: "Open a customer and generate a priced estimate." },
             ].map(({ href, icon, iconClass, title, desc }) => (
               <a key={title} href={href} className="vs-action-card">
                 <div className={`vs-action-icon ${iconClass}`}>{icon}</div>
@@ -267,7 +431,7 @@ export default function DashboardPage() {
                         className="vs-input"
                         placeholder={placeholder}
                         value={(draft as any)[key] ?? ""}
-                        onChange={e => setDraft(d => ({ ...d, [key]: e.target.value }))}
+                        onChange={e => setDraft((d: UserProfile) => ({ ...d, [key]: e.target.value }))}
                       />
                     </div>
                   ))}
@@ -285,10 +449,10 @@ export default function DashboardPage() {
                     const val = (profile as any)[key];
                     return (
                       <div key={key}>
-                        <div className="vs-profile-field-label">{label}</div>
+                        <div className="vs-field-label">{label}</div>
                         {val
-                          ? <div className="vs-profile-field-value">{val}</div>
-                          : <div className="vs-profile-field-empty">Not set</div>}
+                          ? <div className="vs-field-value">{val}</div>
+                          : <div className="vs-field-empty">Not set</div>}
                       </div>
                     );
                   })}
@@ -297,8 +461,8 @@ export default function DashboardPage() {
             </div>
 
             {!editing && (
-              <div style={{ padding: "12px 20px", background: DS.divider, borderTop: `1px solid ${DS.border}`, fontSize: 12, color: DS.text3 }}>
-                Profile is saved to your Supabase account and syncs across all devices.
+              <div style={{ padding: "10px 18px", background: DS.divider, borderTop: `1px solid ${DS.border}`, fontSize: 12, color: DS.text3 }}>
+                Synced to your account across all devices.
               </div>
             )}
           </div>
