@@ -158,7 +158,7 @@ export default function HomePage() {
     { icon: "🧠", title: "Smart Estimating",           desc: "Describe the job in plain English — SparcBid figures out every material, wire size, and labor hour automatically." },
     { icon: "⚡", title: "Bids in Under a Minute",      desc: "What used to take an hour now takes 30 seconds. Get back to the work that actually makes you money." },
     { icon: "📄", title: "Professional Proposals",      desc: "Send a branded proposal to your customer with one click. Your margins stay completely private." },
-    { icon: "🔧", title: "Built by a Contractor",       desc: "SparcBid was founded by a licensed electrical contractor who recognized that the industry's estimating tools hadn't kept pace with modern demands. We built what we always wished existed." },
+    { icon: "🔧", title: "Built by a Contractor", desc: "Created by a licensed electrician who got sick of spending nights estimating jobs by hand. Every feature solves a real problem." },
   ];
 
   return (
@@ -222,18 +222,18 @@ export default function HomePage() {
         .sb-hero-footer   { font-size: 11.5px; color: rgba(255,255,255,0.30); position: relative; }
 
         /* ── Hero top row ── */
-        .sb-hero-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        .sb-hero-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 48px; }
         .sb-signin-btn {
           display: inline-flex; align-items: center; gap: 6px;
-          padding: 8px 16px; border-radius: 99px;
-          border: 1px solid rgba(255,255,255,0.18);
-          background: rgba(255,255,255,0.07);
-          color: rgba(255,255,255,0.80); font-family: ${FONT.head};
+          padding: 8px 18px; border-radius: 99px;
+          border: 1px solid rgba(255,255,255,0.20);
+          background: rgba(255,255,255,0.08);
+          color: rgba(255,255,255,0.85); font-family: ${FONT.head};
           font-weight: 600; font-size: 13px; cursor: pointer;
           transition: background 0.15s, color 0.15s; white-space: nowrap;
-          text-decoration: none;
+          text-decoration: none; line-height: 1;
         }
-        .sb-signin-btn:hover { background: rgba(255,255,255,0.12); color: #fff; }
+        .sb-signin-btn:hover { background: rgba(255,255,255,0.14); color: #fff; }
 
         /* ── Join Now button ── */
         .sb-join-btn {
@@ -363,8 +363,17 @@ export default function HomePage() {
                 <span className="sb-logo-sparc">Sparc</span><span className="sb-logo-bid">Bid</span>
               </span>
             </div>
-            <a href="#" className="sb-signin-btn" onClick={(e) => { e.preventDefault(); setMobileView("auth"); switchTab("login"); }}>
-              Sign In →
+            <a
+              href={loggedIn ? "/dashboard" : "#auth"}
+              className="sb-signin-btn"
+              onClick={(e) => {
+                if (loggedIn) return; // let href handle it
+                e.preventDefault();
+                document.getElementById("auth-card")?.scrollIntoView({ behavior: "smooth" });
+                switchTab("login");
+              }}
+            >
+              {loggedIn ? "Dashboard →" : "Sign In →"}
             </a>
           </div>
 
@@ -373,7 +382,6 @@ export default function HomePage() {
               <span className="sb-eyebrow-dot" />
               Smart Electrical Estimating
             </div>
-
             <h1 className="sb-hero-title">
               Stop guessing.<br />
               Start <em>winning bids.</em>
@@ -397,11 +405,14 @@ export default function HomePage() {
               ))}
             </div>
 
-            {/* Join Now CTA */}
-            <div style={{ marginTop: 40, display: "flex", alignItems: "center", justifyContent: "flex-start", flexWrap: "wrap" }} className="sb-join-row">
-              <button className="sb-join-btn" onClick={() => { setMobileView("auth"); switchTab("signup"); }}>
-                Start Your Free Trial →
+            <div style={{ marginTop: 40, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }} className="sb-join-row">
+              <button className="sb-join-btn" onClick={() => {
+                document.getElementById("auth-card")?.scrollIntoView({ behavior: "smooth" });
+                switchTab("signup");
+              }}>
+                Join Now →
               </button>
+              <span style={{ fontSize: 12, color: "rgba(255,255,255,0.40)" }}>No credit card required</span>
             </div>
           </div>
 
@@ -412,7 +423,7 @@ export default function HomePage() {
 
         {/* ── Auth side ── */}
         <div className="sb-auth-side">
-          <div className="sb-auth-card">
+          <div className="sb-auth-card" id="auth-card">
 
             {loggedIn ? (
               <div className="sb-logged-in">
