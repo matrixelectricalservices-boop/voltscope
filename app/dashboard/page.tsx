@@ -164,8 +164,10 @@ export default function DashboardPage() {
           display: flex; align-items: center; gap: 6px;
           padding: 6px 12px; border-radius: 20px;
           background: ${DS.card}; border: 1px solid ${DS.border};
-          box-shadow: ${DS.cardShadow};
+          box-shadow: ${DS.cardShadow}; text-decoration: none;
+          transition: border-color 0.15s, box-shadow 0.15s;
         }
+        .vs-stat-pill:hover { border-color: ${DS.blueMid}; box-shadow: ${DS.raisedShadow}; }
         .vs-stat-pill-label {
           font-family: ${FONT.head}; font-weight: 600; font-size: 11px;
           color: ${DS.text3}; letter-spacing: 0.3px; text-transform: uppercase;
@@ -216,6 +218,7 @@ export default function DashboardPage() {
         }
         .vs-action-icon.blue  { background: ${DS.blueLight}; }
         .vs-action-icon.amber { background: ${DS.amberLight}; }
+        .vs-action-icon.green { background: ${DS.greenLight}; }
         .vs-action-title {
           font-family: ${FONT.head}; font-weight: 700; font-size: 14px;
           color: ${DS.text1}; margin-bottom: 3px;
@@ -295,7 +298,7 @@ export default function DashboardPage() {
           .vs-topbar-user { display: none; }
           .vs-welcome-row { flex-direction: column; gap: 10px; }
           .vs-stat-pills { align-self: flex-start; }
-          .vs-actions-grid { grid-template-columns: 1fr; }
+          .vs-actions-grid { grid-template-columns: 1fr !important; }
           .vs-profile-grid { grid-template-columns: 1fr; }
           .vs-profile-display { grid-template-columns: 1fr; }
         }
@@ -344,14 +347,14 @@ export default function DashboardPage() {
             </div>
             {!loading && (
               <div className="vs-stat-pills">
-                <div className="vs-stat-pill">
+                <a href="/projects" className="vs-stat-pill">
                   <span className="vs-stat-pill-label">Customers</span>
                   <span className="vs-stat-pill-value">{customerCount ?? "—"}</span>
-                </div>
-                <div className="vs-stat-pill">
+                </a>
+                <a href="/projects" className="vs-stat-pill">
                   <span className="vs-stat-pill-label">Estimates</span>
                   <span className="vs-stat-pill-value">{estimateCount ?? "—"}</span>
-                </div>
+                </a>
               </div>
             )}
           </div>
@@ -371,19 +374,28 @@ export default function DashboardPage() {
           <div className="vs-section-head">
             <span className="vs-section-title">Quick Actions</span>
           </div>
-          <div className="vs-actions-grid">
-            {[
-              { href: "/projects", icon: "📋", iconClass: "blue",  title: "Customers",    desc: "View all your customers and open existing estimates." },
-              { href: "/projects", icon: "⚡", iconClass: "amber", title: "New Estimate", desc: "Open a customer and generate a priced estimate." },
-            ].map(({ href, icon, iconClass, title, desc }) => (
-              <a key={title} href={href} className="vs-action-card">
-                <div className={`vs-action-icon ${iconClass}`}>{icon}</div>
-                <div>
-                  <div className="vs-action-title">{title}</div>
-                  <div className="vs-action-desc">{desc}</div>
-                </div>
-              </a>
-            ))}
+          <div className="vs-actions-grid" style={{ gridTemplateColumns: "1fr 1fr 1fr" }}>
+            <a href="/projects" className="vs-action-card">
+              <div className="vs-action-icon blue">📋</div>
+              <div>
+                <div className="vs-action-title">Customers</div>
+                <div className="vs-action-desc">View all customers and open existing estimates.</div>
+              </div>
+            </a>
+            <a href="/projects" className="vs-action-card">
+              <div className="vs-action-icon amber">⚡</div>
+              <div>
+                <div className="vs-action-title">New Estimate</div>
+                <div className="vs-action-desc">Open a customer and generate a priced estimate.</div>
+              </div>
+            </a>
+            <a href="/projects?new=1" className="vs-action-card">
+              <div className="vs-action-icon green">➕</div>
+              <div>
+                <div className="vs-action-title">Add Customer</div>
+                <div className="vs-action-desc">Create a new customer and start an estimate.</div>
+              </div>
+            </a>
           </div>
 
           {/* Company Profile */}

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getProjects, saveProject, deleteProject, type Project } from "@/app/lib/projectStore";
 import { supabase } from "@/app/lib/supabase";
@@ -60,6 +61,7 @@ function relativeTime(iso: string): string {
 }
 
 export default function ProjectsPage() {
+  const searchParams    = useSearchParams();
   const [projects,       setProjects]       = useState<Project[]>([]);
   const [loading,        setLoading]        = useState(true);
   const [estimateCounts, setEstimateCounts] = useState<Record<string, number>>({});
@@ -69,6 +71,11 @@ export default function ProjectsPage() {
   const [saving,         setSaving]         = useState(false);
   const [search,         setSearch]         = useState("");
   const [deleteConfirm,  setDeleteConfirm]  = useState<string | null>(null);
+
+  // Auto-open form if ?new=1
+  useEffect(() => {
+    if (searchParams?.get("new") === "1") setShowForm(true);
+  }, [searchParams]);
 
   useEffect(() => {
     async function load() {

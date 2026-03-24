@@ -155,10 +155,10 @@ export default function HomePage() {
   }
 
   const features = [
-    { icon: "🧠", title: "Smart Estimating",        desc: "Describe the job in plain English — SparcBid figures out every material, wire size, and labor hour automatically." },
-    { icon: "⚡", title: "Bids in Under a Minute",   desc: "What used to take an hour now takes 30 seconds. Get back to the work that actually makes you money." },
-    { icon: "📄", title: "Professional Proposals",   desc: "Send a branded proposal to your customer with one click. Your margins stay completely private." },
-    { icon: "📱", title: "Works on Any Device",      desc: "Estimate from your truck, the job site, or the office. SparcBid runs on phone, tablet, or desktop." },
+    { icon: "🧠", title: "Smart Estimating",           desc: "Describe the job in plain English — SparcBid figures out every material, wire size, and labor hour automatically." },
+    { icon: "⚡", title: "Bids in Under a Minute",      desc: "What used to take an hour now takes 30 seconds. Get back to the work that actually makes you money." },
+    { icon: "📄", title: "Professional Proposals",      desc: "Send a branded proposal to your customer with one click. Your margins stay completely private." },
+    { icon: "🔧", title: "Built by a Contractor",       desc: "SparcBid was founded by a licensed electrical contractor who recognized that the industry's estimating tools hadn't kept pace with modern demands. We built what we always wished existed." },
   ];
 
   return (
@@ -209,7 +209,7 @@ export default function HomePage() {
           background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
           -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
         }
-        .sb-hero-sub { font-size: 15.5px; color: rgba(255,255,255,0.46); line-height: 1.7; max-width: 460px; margin-bottom: 40px; }
+        .sb-hero-sub { font-size: 15.5px; color: rgba(255,255,255,0.70); line-height: 1.7; max-width: 460px; margin-bottom: 40px; }
         .sb-features { display: flex; flex-direction: column; gap: 18px; }
         .sb-feature  { display: flex; align-items: flex-start; gap: 13px; }
         .sb-feature-icon {
@@ -217,9 +217,34 @@ export default function HomePage() {
           background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.10);
           display: flex; align-items: center; justify-content: center; font-size: 16px;
         }
-        .sb-feature-title { font-family: ${FONT.head}; font-weight: 700; font-size: 13.5px; color: rgba(255,255,255,0.88); margin-bottom: 3px; }
-        .sb-feature-desc  { font-size: 12px; color: rgba(255,255,255,0.35); line-height: 1.6; }
-        .sb-hero-footer   { font-size: 11.5px; color: rgba(255,255,255,0.18); position: relative; }
+        .sb-feature-title { font-family: ${FONT.head}; font-weight: 700; font-size: 13.5px; color: rgba(255,255,255,0.95); margin-bottom: 3px; }
+        .sb-feature-desc  { font-size: 12.5px; color: rgba(255,255,255,0.60); line-height: 1.6; }
+        .sb-hero-footer   { font-size: 11.5px; color: rgba(255,255,255,0.30); position: relative; }
+
+        /* ── Hero top row ── */
+        .sb-hero-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        .sb-signin-btn {
+          display: inline-flex; align-items: center; gap: 6px;
+          padding: 8px 16px; border-radius: 99px;
+          border: 1px solid rgba(255,255,255,0.18);
+          background: rgba(255,255,255,0.07);
+          color: rgba(255,255,255,0.80); font-family: ${FONT.head};
+          font-weight: 600; font-size: 13px; cursor: pointer;
+          transition: background 0.15s, color 0.15s; white-space: nowrap;
+          text-decoration: none;
+        }
+        .sb-signin-btn:hover { background: rgba(255,255,255,0.12); color: #fff; }
+
+        /* ── Join Now button ── */
+        .sb-join-btn {
+          display: inline-flex; align-items: center; gap: 8px;
+          padding: 14px 28px; border-radius: 99px; border: none;
+          background: linear-gradient(135deg, ${DS.blue} 0%, ${DS.blueDark} 100%);
+          color: #fff; font-family: ${FONT.head}; font-weight: 700;
+          font-size: 15px; cursor: pointer; box-shadow: 0 4px 20px rgba(37,99,235,0.50);
+          transition: opacity 0.15s; white-space: nowrap;
+        }
+        .sb-join-btn:hover { opacity: 0.9; }
 
         /* ── Auth side ── */
         .sb-auth-side {
@@ -311,61 +336,18 @@ export default function HomePage() {
         }
         .sb-card-footer button:hover { text-decoration: underline; }
 
-        /* ── Mobile nav pill ── */
-        .sb-mobile-nav {
-          display: none;
-          position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-          z-index: 200;
-          background: rgba(11,15,26,0.92); backdrop-filter: blur(12px);
-          border: 1px solid rgba(255,255,255,0.12);
-          border-radius: 99px; padding: 6px;
-          gap: 4px;
-        }
-        .sb-mobile-nav-btn {
-          padding: 8px 20px; border-radius: 99px; border: none;
-          font-family: ${FONT.head}; font-weight: 600; font-size: 13px;
-          cursor: pointer; transition: background 0.15s, color 0.15s;
-          background: transparent; color: rgba(255,255,255,0.55);
-        }
-        .sb-mobile-nav-btn.active {
-          background: ${DS.blue}; color: #fff;
-          box-shadow: 0 2px 10px rgba(37,99,235,0.40);
-        }
-
         @keyframes vs-spin { to { transform: rotate(360deg); } }
-        .sb-spinner {
-          width: 14px; height: 14px;
-          border: 2px solid rgba(255,255,255,0.35);
-          border-top-color: #fff; border-radius: 50%;
-          animation: vs-spin 0.7s linear infinite; flex-shrink: 0;
-        }
+        .sb-spinner { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.35); border-top-color: #fff; border-radius: 50%; animation: vs-spin 0.7s linear infinite; flex-shrink: 0; }
 
         /* ── Responsive ── */
         @media (max-width: 768px) {
-          .sb-page { grid-template-columns: 1fr; grid-template-rows: auto; }
-
-          .sb-hero {
-            display: ${`var(--hero-display, flex)`};
-            padding: 40px 24px 100px;
-            min-height: 100vh;
-          }
-          .sb-hero-title { font-size: 34px; letter-spacing: -1.2px; }
+          .sb-page { grid-template-columns: 1fr; }
+          .sb-hero { padding: 32px 24px 48px; min-height: auto; }
+          .sb-hero-title { font-size: 32px; letter-spacing: -1.2px; }
           .sb-hero-sub   { font-size: 14px; }
-
-          .sb-auth-side {
-            display: ${`var(--auth-display, none)`};
-            min-height: 100vh; background: ${DS.shell}; padding: 24px 16px 80px;
-          }
-
-          .sb-mobile-nav { display: flex; }
-        }
-      `}</style>
-
-      {/* CSS vars for mobile toggle */}
-      <style>{`
-        @media (max-width: 768px) {
-          .sb-hero      { display: ${mobileView === "hero" ? "flex" : "none"} !important; }
-          .sb-auth-side { display: ${mobileView === "auth" ? "flex" : "none"} !important; }
+          .sb-auth-side  { min-height: auto; background: ${DS.pageBg}; padding: 32px 16px 48px; }
+          .sb-join-row   { justify-content: center; }
+          .sb-join-btn   { width: 100%; justify-content: center; }
         }
       `}</style>
 
@@ -373,12 +355,17 @@ export default function HomePage() {
 
         {/* ── Hero ── */}
         <div className="sb-hero">
-          {/* Logo */}
-          <div className="sb-logo">
-            <ArcMark size={34} />
-            <span className="sb-logo-name">
-              <span className="sb-logo-sparc">Sparc</span><span className="sb-logo-bid">Bid</span>
-            </span>
+          {/* Top row: logo + sign in */}
+          <div className="sb-hero-top">
+            <div className="sb-logo">
+              <ArcMark size={34} />
+              <span className="sb-logo-name">
+                <span className="sb-logo-sparc">Sparc</span><span className="sb-logo-bid">Bid</span>
+              </span>
+            </div>
+            <a href="#" className="sb-signin-btn" onClick={(e) => { e.preventDefault(); setMobileView("auth"); switchTab("login"); }}>
+              Sign In →
+            </a>
           </div>
 
           <div style={{ position: "relative" }}>
@@ -408,6 +395,13 @@ export default function HomePage() {
                   </div>
                 </div>
               ))}
+            </div>
+
+            {/* Join Now CTA */}
+            <div style={{ marginTop: 40, display: "flex", alignItems: "center", justifyContent: "flex-start", flexWrap: "wrap" }} className="sb-join-row">
+              <button className="sb-join-btn" onClick={() => { setMobileView("auth"); switchTab("signup"); }}>
+                Start Your Free Trial →
+              </button>
             </div>
           </div>
 
@@ -554,21 +548,6 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* ── Mobile bottom nav pill ── */}
-      <div className="sb-mobile-nav">
-        <button
-          className={`sb-mobile-nav-btn${mobileView === "hero" ? " active" : ""}`}
-          onClick={() => setMobileView("hero")}
-        >
-          About
-        </button>
-        <button
-          className={`sb-mobile-nav-btn${mobileView === "auth" ? " active" : ""}`}
-          onClick={() => setMobileView("auth")}
-        >
-          Sign In / Sign Up
-        </button>
-      </div>
     </>
   );
 }
