@@ -240,7 +240,6 @@ export default function ProjectDetailPage() {
                 <div className="vs-customer-name">{project.customerName}</div>
                 <div className="vs-customer-address">{project.address}</div>
                 <div className="vs-meta-row">
-                  <span className="vs-badge vs-badge-blue">{project.jobType}</span>
                   {estimates.length > 0 && (
                     <span className="vs-badge vs-badge-green">{estimates.length} estimate{estimates.length !== 1 ? "s" : ""}</span>
                   )}

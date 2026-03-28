@@ -39,14 +39,8 @@ const FONT = {
 
 const R = { sm: 8, md: 10, lg: 12, xl: 16 } as const;
 
-const JOB_TYPES = [
-  "Residential Service", "Commercial Service", "New Construction",
-  "EV Charger Install", "Panel Upgrade", "Service Upgrade",
-  "Lighting Install", "Warehouse / Industrial", "Troubleshooting", "Other",
-];
-
-type NewCustomerForm = { customerName: string; address: string; jobType: string; notes: string; };
-const emptyForm = (): NewCustomerForm => ({ customerName: "", address: "", jobType: "Residential Service", notes: "" });
+type NewCustomerForm = { customerName: string; address: string; notes: string; };
+const emptyForm = (): NewCustomerForm => ({ customerName: "", address: "", notes: "" });
 
 function relativeTime(iso: string): string {
   const diff  = Date.now() - new Date(iso).getTime();
@@ -97,7 +91,7 @@ function ProjectsInner() {
 
   const filtered = projects.filter((p) => {
     const q = search.toLowerCase();
-    return p.customerName.toLowerCase().includes(q) || p.address.toLowerCase().includes(q) || p.jobType.toLowerCase().includes(q);
+    return p.customerName.toLowerCase().includes(q) || p.address.toLowerCase().includes(q);
   });
 
   async function handleCreate(e: React.FormEvent) {
@@ -107,7 +101,7 @@ function ProjectsInner() {
     if (!form.address.trim())      errs.address      = "Address is required";
     if (Object.keys(errs).length)  { setErrors(errs); return; }
     setSaving(true);
-    const created = await saveProject({ customerName: form.customerName.trim(), address: form.address.trim(), jobType: form.jobType, notes: form.notes.trim() });
+    const created = await saveProject({ customerName: form.customerName.trim(), address: form.address.trim(), jobType: "General", notes: form.notes.trim() });
     setSaving(false);
     if (created) { setProjects(await getProjects()); setShowForm(false); setForm(emptyForm()); setErrors({}); }
   }
@@ -140,18 +134,12 @@ function ProjectsInner() {
           <form onSubmit={handleCreate} noValidate>
             <div className="vs-form-body">
               <div className="vs-form-grid">
-                <div>
+                <div className="full">
                   <label className="vs-label" htmlFor="customerName">Customer / Company Name *</label>
                   <input id="customerName" type="text" className={`vs-input${errors.customerName ? " error" : ""}`}
                     placeholder="John Smith" value={form.customerName}
                     onChange={e => { setForm(f => ({ ...f, customerName: e.target.value })); setErrors(ev => ({ ...ev, customerName: "" })); }} />
                   {errors.customerName && <div className="vs-field-error">{errors.customerName}</div>}
-                </div>
-                <div>
-                  <label className="vs-label" htmlFor="jobType">Job Type *</label>
-                  <select id="jobType" className="vs-select" value={form.jobType} onChange={e => setForm(f => ({ ...f, jobType: e.target.value }))}>
-                    {JOB_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
                 </div>
                 <div className="full">
                   <label className="vs-label" htmlFor="address">Job Address *</label>
@@ -178,7 +166,7 @@ function ProjectsInner() {
 
       {projects.length > 0 && (
         <div className="vs-search-row">
-          <input type="search" className="vs-search" placeholder="Search by name, address, or job type…"
+          <input type="search" className="vs-search" placeholder="Search by name or address…"
             value={search} onChange={e => setSearch(e.target.value)} />
           <span className="vs-search-count">{filtered.length}/{projects.length}</span>
         </div>
@@ -210,7 +198,6 @@ function ProjectsInner() {
                     <div className="vs-card-name">{p.customerName}</div>
                     <div className="vs-card-address">{p.address}</div>
                     <div className="vs-card-meta">
-                      <span className="vs-badge vs-badge-gray">{p.jobType}</span>
                       {(estimateCounts[p.id] ?? 0) > 0 && (
                         <span className="vs-badge vs-badge-green">{estimateCounts[p.id]} est.</span>
                       )}

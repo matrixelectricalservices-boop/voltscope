@@ -135,6 +135,9 @@ export default function NewEstimatePage() {
   const [uiState,           setUiState]          = useState<UIState>({ isSaved: false });
   const [savedConfirm,      setSavedConfirm]     = useState(false);
   const [jobDescription,    setJobDescription]   = useState("");
+  const [jobType,           setJobType]          = useState<"Residential"|"Commercial"|"Industrial">("Residential");
+  const [zipCode,           setZipCode]          = useState("");
+  const [zipError,          setZipError]         = useState("");
   const [estimate,          setEstimate]         = useState<GeneratedEstimate | null>(null);
   const [laborRate,         setLaborRate]        = useState(150);
   const [markupPct,         setMarkupPct]        = useState(20);
@@ -227,11 +230,16 @@ export default function NewEstimatePage() {
   async function handleGenerate() {
     const text = jobDescription.trim();
     if (!text) { setGenState({ status: "error", msg: "Please enter a job description first." }); return; }
+    if (!zipCode.trim() || !/^\d{5}$/.test(zipCode.trim())) {
+      setZipError("Please enter a valid 5-digit zip code.");
+      return;
+    }
+    setZipError("");
     setGenState({ status: "loading" });
     const controller = new AbortController();
     const timeoutId  = window.setTimeout(() => controller.abort(), 55_000);
     try {
-      const res  = await fetch("/api/estimate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ description: text, laborRate, markupPct, permitFee, materialCostIndex }), signal: controller.signal });
+      const res  = await fetch("/api/estimate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ description: text, jobType, zipCode: zipCode.trim(), laborRate, markupPct, permitFee, materialCostIndex }), signal: controller.signal });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data) { setGenState({ status: "error", msg: data?.error ?? "API error — please try again." }); return; }
       const generated: GeneratedEstimate = {
@@ -455,6 +463,36 @@ export default function NewEstimatePage() {
                   <div className="vs-progress-fill" style={{ width: `${progress}%` }} />
                 </div>
               )}
+              {/* Job type + zip row */}
+              <div style={{ display: "flex", gap: 12, marginTop: 12, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                  <span style={{ fontFamily: FONT.head, fontWeight: 600, fontSize: 11, letterSpacing: 0.4, textTransform: "uppercase" as const, color: DS.text3 }}>Job Type *</span>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    {(["Residential","Commercial","Industrial"] as const).map((t) => (
+                      <button key={t} type="button" onClick={() => setJobType(t)} style={{
+                        padding: "7px 14px", borderRadius: R.md, border: "none",
+                        fontFamily: FONT.head, fontWeight: 600, fontSize: 12,
+                        cursor: "pointer", transition: "all 0.15s",
+                        background: jobType === t ? DS.blue : DS.divider,
+                        color: jobType === t ? "#fff" : DS.text2,
+                        boxShadow: jobType === t ? DS.blueShadow : "none",
+                      }}>{t}</button>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                  <span style={{ fontFamily: FONT.head, fontWeight: 600, fontSize: 11, letterSpacing: 0.4, textTransform: "uppercase" as const, color: DS.text3 }}>Job Zip Code *</span>
+                  <input
+                    type="text" inputMode="numeric" maxLength={5}
+                    placeholder="28401"
+                    value={zipCode}
+                    onChange={e => { setZipCode(e.target.value.replace(/\D/g, "")); setZipError(""); }}
+                    style={{ width: 110, padding: "7px 12px", borderRadius: R.md, border: `1.5px solid ${zipError ? DS.red : DS.border}`, outline: "none", fontFamily: FONT.mono, fontSize: 14, color: DS.text1, background: DS.card }}
+                  />
+                  {zipError && <span style={{ fontSize: 11, color: DS.red }}>{zipError}</span>}
+                </div>
+              </div>
+
               <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 12, flexWrap: "wrap" }}>
                 <button type="button" onClick={handleGenerate} disabled={!canGenerate}
                   style={{ ...btnPrimary, opacity: canGenerate ? 1 : 0.45, cursor: canGenerate ? "pointer" : "not-allowed", fontSize: 14 }}>

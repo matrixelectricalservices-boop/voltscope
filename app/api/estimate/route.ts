@@ -122,6 +122,19 @@ Return ONLY valid JSON — no markdown, no explanation.
 }
 
 PRICING RULES — use contractor (supply house) pricing, NOT retail:
+
+JOB TYPE CONTEXT (from jobType field in input — use to calibrate scope and pricing):
+  Residential: use NM-B wire, residential panels, standard labor rates, typical home access
+  Commercial:  use MC cable or EMT, commercial panels, higher labor rates (+15%), assume harder access
+  Industrial:  use EMT or rigid conduit, industrial equipment, highest labor rates (+25%), heavy-duty materials
+
+ZIP CODE CONTEXT (from zipCode field in input):
+  Use the zip code to adjust material costs for regional pricing:
+  - High cost areas (NYC, SF, Boston, Seattle, Chicago zip codes): add 15–25% to material costs
+  - Mid cost areas (most major metros): use base pricing as listed
+  - Low cost areas (rural, Southeast, Midwest small cities): subtract 5–10% from material costs
+  - If zip code is in NC, SC, GA, TN, AL, MS, AR: use base pricing or slightly below
+  Always note the zip code region in assumptions.
   2-pole 60A breaker:        $18–22
   2-pole 50A breaker:        $16–20
   2-pole 40A breaker:        $14–18
@@ -451,22 +464,29 @@ export async function POST(req: Request) {
 
     const body = (await req.json()) as {
       description?:        string;
+      jobType?:            string;
+      zipCode?:            string;
       laborRate?:          number;
       markupPct?:          number;
       permitFee?:          number;
-      materialCostIndex?:  number; // 1.0 = normal, 1.15 = materials running high
+      materialCostIndex?:  number;
     };
 
     const description       = (body.description ?? "").trim();
     if (!description) return Response.json({ error: "Missing description" }, { status: 400 });
 
+    const jobType           = (body.jobType ?? "Residential").trim();
+    const zipCode           = (body.zipCode ?? "").trim();
     const laborRate         = typeof body.laborRate         === "number" ? body.laborRate         : 150;
     const markupPct         = typeof body.markupPct         === "number" ? body.markupPct         : 20;
     const permitFee         = typeof body.permitFee         === "number" ? body.permitFee         : 0;
     const materialCostIndex = typeof body.materialCostIndex === "number" ? body.materialCostIndex : 1.0;
 
+    // Build enriched description with job context
+    const enrichedDescription = `JOB TYPE: ${jobType}\nZIP CODE: ${zipCode}\nDESCRIPTION: ${description}`;
+
     const client = new OpenAI({ apiKey });
-    console.log("[/api/estimate] start — laborRate:", laborRate, "markupPct:", markupPct, "materialCostIndex:", materialCostIndex);
+    console.log("[/api/estimate] start — jobType:", jobType, "zip:", zipCode, "laborRate:", laborRate);
 
     const controller = new AbortController();
     const timeout    = setTimeout(() => controller.abort(), 50_000);
@@ -483,7 +503,7 @@ export async function POST(req: Request) {
           response_format: { type: "json_object" },
           messages: [
             { role: "system", content: buildIntentPrompt() },
-            { role: "user",   content: description },
+            { role: "user",   content: enrichedDescription },
           ],
         },
         { signal: controller.signal }
@@ -516,7 +536,7 @@ export async function POST(req: Request) {
           response_format: { type: "json_object" },
           messages: [
             { role: "system", content: prompt2 },
-            { role: "user",   content: JSON.stringify(intent) },
+            { role: "user",   content: JSON.stringify({ ...intent, jobType, zipCode }) },
           ],
         },
         { signal: controller.signal }
