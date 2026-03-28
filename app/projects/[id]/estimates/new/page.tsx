@@ -139,13 +139,17 @@ export default function NewEstimatePage() {
   const [zipCode,           setZipCode]          = useState("");
   const [zipError,          setZipError]         = useState("");
   const [estimate,          setEstimate]         = useState<GeneratedEstimate | null>(null);
-  const [laborRate,         setLaborRate]        = useState(150);
+  const [laborRate,         setLaborRate]        = useState(125);
   const [markupPct,         setMarkupPct]        = useState(20);
   const [permitFee,         setPermitFee]        = useState(0);
   const [materialCostIndex, setMaterialCostIndex]= useState(1.0);
   const [showAllMaterials,  setShowAllMaterials] = useState(false);
   const [genState, setGenState] = useState<{ status: "idle"|"loading"|"ready"|"error"; msg?: string }>({ status: "idle" });
   const [progress, setProgress] = useState(0);
+
+  const LABOR_RATES: Record<"Residential"|"Commercial"|"Industrial", number> = {
+    Residential: 125, Commercial: 150, Industrial: 200,
+  };
 
   // Load project
   useEffect(() => {
@@ -160,7 +164,7 @@ export default function NewEstimatePage() {
     try {
       const saved = JSON.parse(raw) as Partial<Draft>;
       if (typeof saved.jobDescription    === "string") setJobDescription(saved.jobDescription);
-      if (typeof saved.laborRate         === "number") setLaborRate(Math.max(150, saved.laborRate));
+      if (typeof saved.laborRate         === "number") setLaborRate(saved.laborRate);
       if (typeof saved.markupPct         === "number") setMarkupPct(saved.markupPct);
       if (typeof saved.permitFee         === "number") setPermitFee(saved.permitFee);
       if (typeof saved.materialCostIndex === "number") setMaterialCostIndex(saved.materialCostIndex);
@@ -466,28 +470,38 @@ export default function NewEstimatePage() {
               {/* Job type + zip row */}
               <div style={{ display: "flex", gap: 12, marginTop: 12, flexWrap: "wrap" }}>
                 <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                  <span style={{ fontFamily: FONT.head, fontWeight: 600, fontSize: 11, letterSpacing: 0.4, textTransform: "uppercase" as const, color: DS.text3 }}>Job Type *</span>
+                  <span style={{ fontFamily: FONT.head, fontWeight: 600, fontSize: 11, letterSpacing: 0.4, textTransform: "uppercase" as const, color: DS.text3 }}>
+                    Job Type {genState.status === "ready" && <span style={{ color: DS.blue, fontSize: 10 }}>· locked</span>}
+                  </span>
                   <div style={{ display: "flex", gap: 6 }}>
                     {(["Residential","Commercial","Industrial"] as const).map((t) => (
-                      <button key={t} type="button" onClick={() => setJobType(t)} style={{
-                        padding: "7px 14px", borderRadius: R.md, border: "none",
-                        fontFamily: FONT.head, fontWeight: 600, fontSize: 12,
-                        cursor: "pointer", transition: "all 0.15s",
-                        background: jobType === t ? DS.blue : DS.divider,
-                        color: jobType === t ? "#fff" : DS.text2,
-                        boxShadow: jobType === t ? DS.blueShadow : "none",
-                      }}>{t}</button>
+                      <button key={t} type="button"
+                        disabled={genState.status === "ready" || genState.status === "loading"}
+                        onClick={() => { setJobType(t); setLaborRate(LABOR_RATES[t]); }}
+                        style={{
+                          padding: "7px 14px", borderRadius: R.md, border: "none",
+                          fontFamily: FONT.head, fontWeight: 600, fontSize: 12,
+                          cursor: genState.status === "ready" ? "default" : "pointer",
+                          transition: "all 0.15s",
+                          background: jobType === t ? DS.blue : DS.divider,
+                          color: jobType === t ? "#fff" : DS.text2,
+                          boxShadow: jobType === t ? DS.blueShadow : "none",
+                          opacity: genState.status === "ready" && jobType !== t ? 0.4 : 1,
+                        }}>{t}</button>
                     ))}
                   </div>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                  <span style={{ fontFamily: FONT.head, fontWeight: 600, fontSize: 11, letterSpacing: 0.4, textTransform: "uppercase" as const, color: DS.text3 }}>Job Zip Code *</span>
+                  <span style={{ fontFamily: FONT.head, fontWeight: 600, fontSize: 11, letterSpacing: 0.4, textTransform: "uppercase" as const, color: DS.text3 }}>
+                    Zip Code {genState.status === "ready" && <span style={{ color: DS.blue, fontSize: 10 }}>· locked</span>}
+                  </span>
                   <input
                     type="text" inputMode="numeric" maxLength={5}
                     placeholder="28401"
                     value={zipCode}
+                    disabled={genState.status === "ready" || genState.status === "loading"}
                     onChange={e => { setZipCode(e.target.value.replace(/\D/g, "")); setZipError(""); }}
-                    style={{ width: 110, padding: "7px 12px", borderRadius: R.md, border: `1.5px solid ${zipError ? DS.red : DS.border}`, outline: "none", fontFamily: FONT.mono, fontSize: 14, color: DS.text1, background: DS.card }}
+                    style={{ width: 110, padding: "7px 12px", borderRadius: R.md, border: `1.5px solid ${zipError ? DS.red : DS.border}`, outline: "none", fontFamily: FONT.mono, fontSize: 14, color: DS.text1, background: genState.status === "ready" ? DS.divider : DS.card, cursor: genState.status === "ready" ? "default" : "text" }}
                   />
                   {zipError && <span style={{ fontSize: 11, color: DS.red }}>{zipError}</span>}
                 </div>
