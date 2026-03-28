@@ -153,7 +153,7 @@ ZIP CODE CONTEXT (from zipCode field in input):
   XHHW 2/0 AL:               $1.60–2.20/ft
   SER 2/0 AL cable (residential service entrance): $2.80–3.50/ft
   SER 4/0 AL cable (200A residential):             $4.20–5.50/ft
-  NEMA 14-50 receptacle:     $20–28
+  NEMA 14-50 receptacle:     $72–80
   GFCI 20A receptacle:       $14–18
   TR 20A duplex outlet:      $3–5
   Single-pole switch:        $2–4
@@ -165,6 +165,9 @@ ZIP CODE CONTEXT (from zipCode field in input):
   NM-B 12/2:                 $0.70–0.90/ft
   NM-B 10/2:                 $1.10–1.40/ft
   NM-B 10/3:                 $1.80–2.20/ft
+  NM-B 8/3:                  $3.50–4.50/ft
+  NM-B 6/3:                  $8.50–9.50/ft
+  NM-B 6/2:                  $7.00–8.50/ft
   #6 THHN:                   $0.80–1.00/ft
   #8 THHN:                   $0.50–0.65/ft
   #10 THHN:                  $0.28–0.38/ft
@@ -239,6 +242,25 @@ BREAKER SIZING:
   EV 32A EVSE → 40A 2-pole | EV 40A → 50A 2-pole | EV 48A → 60A 2-pole
   Dryer → 30A 2-pole | Range → 50A 2-pole | Standard outlet → 20A 1-pole
 
+EV CHARGER RESIDENTIAL SCOPE — CRITICAL PRICING RULES:
+  Standard residential 50A EV charger install with new breaker, 15 ft run:
+    REQUIRED materials (do not omit any):
+      - 50A 2-pole breaker:        $16–20
+      - NM-B 6/3 wire (15 ft × 1.15 = 18 ft): 18 × $9.00 = ~$162
+      - NEMA 14-50 receptacle:     $72–80
+      - 1-gang box:                $2
+      - Wire nuts, staples, tape:  $8
+      - TOTAL MATERIALS:           $260–290
+    REQUIRED labor:
+      - Run wire, install receptacle, install breaker: 4 hrs at $125/hr = $500
+    SUBTOTAL: ~$780
+    With 20% markup: ~$936
+    With permit ($75–150): ~$1,000–1,100
+    FINAL TARGET: $950–1,100 for a basic residential 50A EV charger install
+  
+  If run is longer (30–50 ft) or uses EMT: add wire cost + 0.5 hrs labor per 10 ft
+  DO NOT include unnecessary items like conduit bodies, junction boxes, or disconnect switches for a basic residential garage install
+
 BOXES:
   Wall outlet/switch → 1-gang new work box + decora plate per device
   Outdoor device → weatherproof box + cover
@@ -249,7 +271,9 @@ EMT RUNS:
   conduit (run ft) + connectors ×2 min + couplings (ceil(run/10)-1) + straps (ceil(run/6)) + THHN per conductor
 
 LABOR HOURS (baseline, adjust for difficulty/access):
-  EV charger install (standard):    3.5–5 hrs
+  EV charger install — residential, short run (under 20 ft, no panel issues): 4 hrs
+  EV charger install — residential, long run or attic/crawl: 5–6 hrs
+  EV charger install — commercial or outdoor pedestal: 6–8 hrs
   Service upgrade 200A:             6–10 hrs
   Service upgrade 400A:             10–16 hrs
   Panel/breaker work:               2–4 hrs
@@ -585,8 +609,12 @@ export async function POST(req: Request) {
 
     console.log("[/api/estimate] materialTotal:", materialTotal, "laborTotal:", laborTotal, "finalTotal:", finalTotal, "laborHours:", laborHours);
 
+    const baseSummary = typeof intent?.summary === "string" ? intent.summary.trim() : "Electrical scope estimate.";
+    const summaryPrefix = `${jobType} · ${zipCode}`;
+    const summary = `${summaryPrefix} — ${baseSummary}`;
+
     const result: EstimateResult = {
-      summary:       typeof intent?.summary === "string" ? intent.summary.trim() : "Electrical scope estimate.",
+      summary,
       assumptions,
       scopeType:     isAssembly ? "assembly" : "line_item",
       materials,

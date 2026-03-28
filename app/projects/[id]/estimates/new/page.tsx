@@ -141,7 +141,7 @@ export default function NewEstimatePage() {
   const [estimate,          setEstimate]         = useState<GeneratedEstimate | null>(null);
   const [laborRate,         setLaborRate]        = useState(125);
   const [markupPct,         setMarkupPct]        = useState(20);
-  const [permitFee,         setPermitFee]        = useState(0);
+  const [permitFee,         setPermitFee]        = useState(125);
   const [materialCostIndex, setMaterialCostIndex]= useState(1.0);
   const [showAllMaterials,  setShowAllMaterials] = useState(false);
   const [genState, setGenState] = useState<{ status: "idle"|"loading"|"ready"|"error"; msg?: string }>({ status: "idle" });
@@ -166,7 +166,7 @@ export default function NewEstimatePage() {
       if (typeof saved.jobDescription    === "string") setJobDescription(saved.jobDescription);
       if (typeof saved.laborRate         === "number") setLaborRate(saved.laborRate);
       if (typeof saved.markupPct         === "number") setMarkupPct(saved.markupPct);
-      if (typeof saved.permitFee         === "number") setPermitFee(saved.permitFee);
+      if (typeof saved.permitFee         === "number" && saved.permitFee > 0) setPermitFee(saved.permitFee);
       if (typeof saved.materialCostIndex === "number") setMaterialCostIndex(saved.materialCostIndex);
       if (saved.estimate) { setEstimate(saved.estimate); setGenState({ status: "ready" }); }
       if (saved.savedAt) setUiState({ isSaved: true, lastSavedAt: saved.savedAt });
@@ -364,7 +364,7 @@ export default function NewEstimatePage() {
         .vs-assumption-dot { width: 5px; height: 5px; border-radius: 50%; background: ${DS.blue}; flex-shrink: 0; margin-top: 7px; }
 
         /* ── Totals summary ── */
-        .vs-totals-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+        .vs-totals-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 16px; }
         .vs-total-item { padding: 12px 14px; border-radius: ${R.lg}px; border: 1px solid ${DS.border}; background: ${DS.card}; }
         .vs-total-item-label { font-family: ${FONT.head}; font-weight: 600; font-size: 10.5px; letter-spacing: 0.4px; text-transform: uppercase; color: ${DS.text3}; }
         .vs-total-item-value { font-family: ${FONT.mono}; font-weight: 500; font-size: 18px; color: ${DS.text1}; margin-top: 4px; letter-spacing: -0.3px; }
@@ -395,7 +395,7 @@ export default function NewEstimatePage() {
 
         /* ── Mobile ── */
         @media (max-width: 600px) {
-          .vs-totals-grid { grid-template-columns: 1fr; }
+          .vs-totals-grid { grid-template-columns: 1fr 1fr; }
           .vs-final-value { font-size: 32px; }
           .vs-table th.hide-mobile, .vs-table td.hide-mobile { display: none; }
           .vs-settings-row { gap: 12px; }
@@ -683,8 +683,13 @@ export default function NewEstimatePage() {
                     <div className="vs-total-item-value amber">${fmt(totals.laborTotal)}</div>
                   </div>
                   <div className="vs-total-item">
+                    <div className="vs-total-item-label">Permit Fee</div>
+                    <div className="vs-total-item-value">${fmt(permitFee)}</div>
+                  </div>
+                  <div className="vs-total-item">
                     <div className="vs-total-item-label">Subtotal</div>
                     <div className="vs-total-item-value">${fmt(totals.subtotal)}</div>
+                    <div style={{ fontSize: 10, color: DS.text3, marginTop: 2 }}>incl. permit</div>
                   </div>
                   <div className="vs-total-item">
                     <div className="vs-total-item-label">Markup ({markupPct}%)</div>
