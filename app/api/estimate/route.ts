@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import Anthropic from "@anthropic-ai/sdk";
 
 export const runtime = "nodejs";
 
@@ -10,7 +10,7 @@ type MaterialLine = {
   item:      string;
   qty:       number;
   unit:      string;
-  unitCost:  number;  // contractor cost from AI — what YOU pay at the supply house
+  unitCost:  number;
   lineTotal: number;
   notes?:    string;
   category:  "equipment" | "wire" | "conduit" | "devices" | "boxes" | "fittings" | "consumables" | "labor";
@@ -34,7 +34,6 @@ type EstimateResult = {
   subtotal:      number;
   markup:        number;
   finalTotal:    number;
-  // New construction only
   isNewConstruction?: boolean;
   sqft?:            number;
   ratePerSqft?:     number;
@@ -47,7 +46,7 @@ type EstimateResult = {
 function buildIntentPrompt(): string {
   return `
 You are an electrical estimating assistant. Read the job description and extract structured intent ONLY.
-Return ONLY valid JSON — no markdown, no explanation.
+Return ONLY valid JSON — no markdown, no explanation, no code fences.
 
 {
   "summary": "one sentence describing the job",
@@ -99,8 +98,7 @@ function buildLineItemPrompt(): string {
   return `
 You are a licensed electrical estimating assistant with 20 years of field experience.
 You receive a structured job intent. Return a precise material list and labor with CONTRACTOR PRICING.
-
-Return ONLY valid JSON — no markdown, no explanation.
+Return ONLY valid JSON — no markdown, no explanation, no code fences.
 
 {
   "materials": [
@@ -123,18 +121,19 @@ Return ONLY valid JSON — no markdown, no explanation.
 
 PRICING RULES — use contractor (supply house) pricing, NOT retail:
 
-JOB TYPE CONTEXT (from jobType field in input — use to calibrate scope and pricing):
+JOB TYPE CONTEXT (from jobType field in input):
   Residential: use NM-B wire, residential panels, standard labor rates, typical home access
   Commercial:  use MC cable or EMT, commercial panels, higher labor rates (+15%), assume harder access
   Industrial:  use EMT or rigid conduit, industrial equipment, highest labor rates (+25%), heavy-duty materials
 
 ZIP CODE CONTEXT (from zipCode field in input):
-  Use the zip code to adjust material costs for regional pricing:
-  - High cost areas (NYC, SF, Boston, Seattle, Chicago zip codes): add 15–25% to material costs
-  - Mid cost areas (most major metros): use base pricing as listed
-  - Low cost areas (rural, Southeast, Midwest small cities): subtract 5–10% from material costs
-  - If zip code is in NC, SC, GA, TN, AL, MS, AR: use base pricing or slightly below
+  - High cost areas (NYC, SF, Boston, Seattle, Chicago): add 15–25% to material costs
+  - Mid cost areas (most major metros): use base pricing
+  - Low cost areas (rural Southeast, Midwest small cities): subtract 5–10%
+  - NC, SC, GA, TN, AL, MS, AR: use base pricing or slightly below
   Always note the zip code region in assumptions.
+
+MATERIAL PRICING (contractor cost):
   2-pole 60A breaker:        $18–22
   2-pole 50A breaker:        $16–20
   2-pole 40A breaker:        $14–18
@@ -151,9 +150,10 @@ ZIP CODE CONTEXT (from zipCode field in input):
   350 kcmil AL XHHW:         $3.20–4.50/ft
   250 kcmil AL XHHW:         $2.40–3.20/ft
   XHHW 2/0 AL:               $1.60–2.20/ft
-  SER 2/0 AL cable (residential service entrance): $2.80–3.50/ft
-  SER 4/0 AL cable (200A residential):             $4.20–5.50/ft
+  SER 2/0 AL cable:          $2.80–3.50/ft
+  SER 4/0 AL cable:          $4.20–5.50/ft
   NEMA 14-50 receptacle:     $72–80
+  NEMA 6-50 receptacle:      $18–24
   GFCI 20A receptacle:       $14–18
   TR 20A duplex outlet:      $3–5
   Single-pole switch:        $2–4
@@ -173,13 +173,13 @@ ZIP CODE CONTEXT (from zipCode field in input):
   #10 THHN:                  $0.28–0.38/ft
   MC cable 12/2:             $1.20–1.50/ft
   MC cable 6/2:              $5.50–7.50/ft
-  XHHW 2/0 AL:               $1.60–2.20/ft
   3/4" EMT connector:        $0.50–0.70
   3/4" EMT coupling:         $0.35–0.50
   3/4" EMT strap:            $0.18–0.25
   1-gang new work box:       $0.90–1.20
   4-sq box 2-1/8":           $2.25–3.00
   Weatherproof box:          $7–10
+  Weatherproof in-use cover: $10–14
   Ground rod 5/8"×8ft:       $18–26
   Surge protector (panel):   $95–130
   Misc consumables (lot):    $20–35
@@ -189,145 +189,87 @@ NEC WIRE SIZING:
   NM-B: indoor dry residential | MC: commercial/no NM | EMT: outdoor/exposed + THHN inside
   Wire qty = runLengthFt × 1.15
 
-SERVICE ENTRANCE WIRE SIZING (USE THESE — do not guess):
-  100A service  → 1/0 AWG aluminum XHHW or #4 AWG copper
-  150A service  → 2/0 AWG aluminum XHHW or #1 AWG copper
-  200A service  → 2/0 AWG aluminum XHHW (most common) or #2/0 AWG copper
-  320A service  → 350 kcmil aluminum XHHW
-  400A service  → 500 kcmil aluminum XHHW (2 sets of 250 kcmil AL is acceptable)
-  Always include neutral + ground of same size. Ground can be 1 size smaller per NEC.
-  Service entrance cable runs: meter base to main panel. Always include 3 conductors (2 hot + 1 neutral) + 1 ground.
+WIRING METHOD DECISION — follow this every time:
+  Interior residential, dry, concealed wall/attic: NM-B
+  Exterior, exposed, wet, or commercial: EMT + THHN
+  For EMT runs ALWAYS include: connectors (2 per stick), couplings (1 per 10ft), straps (1 per 6ft)
+  For NM-B runs ALWAYS include: staples/straps, wire nuts, electrical tape
 
-DEFAULT RUN LENGTHS (use these when length is not specified):
-  Meter base to main panel (typical):  6 ft
-  Meter base to main panel (garage):   25 ft
-  Meter base to main panel (basement): 15 ft
-  EV charger from panel (garage):      30 ft
-  EV charger from panel (exterior):    50 ft
+SERVICE ENTRANCE WIRE SIZING:
+  100A → 1/0 AWG AL XHHW or #4 AWG copper
+  150A → 2/0 AWG AL XHHW or #1 AWG copper
+  200A → 2/0 AWG AL XHHW or 2/0 AWG copper
+  320A → 350 kcmil AL XHHW
+  400A → 500 kcmil AL XHHW
+
+DEFAULT RUN LENGTHS (when not specified):
+  Meter base to main panel (typical):   6 ft
+  Meter base to main panel (garage):    25 ft
+  EV charger from panel (garage):       30 ft
+  EV charger from panel (exterior):     50 ft
   Subpanel feed:                        40 ft
   Standard branch circuit:              35 ft
-  Lighting circuit (per fixture):       25 ft × number of fixtures (daisy-chained)
-    Example: 6 recessed lights = 6 × 25 ft = 150 ft NM-B 14/2
-    Example: 10 recessed lights = 10 × 25 ft = 250 ft NM-B 14/2
-  Always note the assumed length in the item's notes field.
+  Lighting circuit: 25 ft × number of fixtures (daisy-chained)
+  Always note assumed length in item notes field.
 
-METER BASE & PANEL SIZING:
-  200A upgrade → 200A meter base + 200A main breaker panel (40-space minimum)
-  400A upgrade → 400A meter base + 400A main breaker (or 2×200A panels fed from 400A disconnect)
-  Always include: meter base, main panel, main breaker, ground rods (2), grounding electrode conductor, meter seal wire
+RESIDENTIAL vs COMMERCIAL SERVICE UPGRADE:
+  RESIDENTIAL 400A: SER cable, 2×200A panels common, 8–12 hrs labor, $2,500–4,000 total
+  COMMERCIAL 400A:  500 kcmil AL XHHW in EMT, 12–20 hrs labor, $5,000–9,000 total
 
-RESIDENTIAL vs COMMERCIAL SERVICE UPGRADE — CRITICAL SCOPE DIFFERENCE:
-
-  RESIDENTIAL 400A upgrade (house, home, dwelling):
-    - Use 2/0 AL XHHW × 2 sets (two 200A panels is most common residential approach)
-    - OR single 400A meter base + 400A disconnect + one large panel
-    - Typical run: 6–10 ft meter to panel
-    - NO EMT required if inside conduit already exists — use SER cable instead
-    - SER 2/0 AL cable (service entrance cable): $2.80–3.50/ft — use this for residential
-    - Labor: 8–12 hrs residential (simpler access, shorter runs, utility coordination)
-    - Total material cost target: $800–1,400 for residential 400A upgrade
-    - Total job cost with labor at $150/hr + markup: $2,500–4,000 range
-
-  COMMERCIAL 400A upgrade (warehouse, office, commercial building):
-    - Use 500 kcmil AL XHHW in EMT conduit
-    - Longer runs, harder access, more conduit fittings required
-    - Labor: 12–20 hrs commercial
-    - Total job cost: $5,000–9,000 range
-
-  DETECT from description: if "residential", "house", "home", "dwelling" → use residential scope
-  If "commercial", "warehouse", "office", "building" → use commercial scope
-  If unclear → use residential scope as default for meter/panel upgrades
+EV CHARGER RESIDENTIAL — EXACT PRICING (50A or 60A circuit):
+  Required materials for standard garage install, 50ft run:
+    - 2-pole 60A breaker:                 $18–22
+    - NM-B 6/3 (runLengthFt × 1.15):     $9.00/ft
+    - NEMA 14-50 receptacle:              $72–80
+    - 1-gang weatherproof box:            $8–10
+    - Weatherproof in-use cover:          $10–14
+    - Wire staples/straps:                $6–8
+    - Misc consumables:                   $20–25
+  Labor: 4 hrs for runs under 50ft, 5 hrs for longer runs
+  ALWAYS use NM-B 6/3 for interior residential runs, EMT + #6 THHN for exposed/exterior
+  DO NOT add junction boxes, disconnects, or conduit bodies unless run is exposed
 
 BREAKER SIZING:
   EV 32A EVSE → 40A 2-pole | EV 40A → 50A 2-pole | EV 48A → 60A 2-pole
   Dryer → 30A 2-pole | Range → 50A 2-pole | Standard outlet → 20A 1-pole
 
-EV CHARGER RESIDENTIAL SCOPE — CRITICAL PRICING RULES:
-  Standard residential 50A EV charger install with new breaker, 15 ft run:
-    REQUIRED materials (do not omit any):
-      - 50A 2-pole breaker:        $16–20
-      - NM-B 6/3 wire (15 ft × 1.15 = 18 ft): 18 × $9.00 = ~$162
-      - NEMA 14-50 receptacle:     $72–80
-      - 1-gang box:                $2
-      - Wire nuts, staples, tape:  $8
-      - TOTAL MATERIALS:           $260–290
-    REQUIRED labor:
-      - Run wire, install receptacle, install breaker: 4 hrs at $125/hr = $500
-    SUBTOTAL: ~$780
-    With 20% markup: ~$936
-    With permit ($75–150): ~$1,000–1,100
-    FINAL TARGET: $950–1,100 for a basic residential 50A EV charger install
-  
-  If run is longer (30–50 ft) or uses EMT: add wire cost + 0.5 hrs labor per 10 ft
-  DO NOT include unnecessary items like conduit bodies, junction boxes, or disconnect switches for a basic residential garage install
+LABOR HOURS:
+  EV charger residential short run (under 50ft):    4 hrs
+  EV charger residential long run (over 50ft):      5–6 hrs
+  EV charger commercial/outdoor:                    6–8 hrs
+  Service upgrade 200A residential:                 8–12 hrs
+  Service upgrade 400A residential:                 12–16 hrs
+  Service upgrade 400A commercial:                  16–24 hrs
+  Per recessed light (attic access):                1.0 hr
+  Per recessed light (finished ceiling):            1.5 hrs
+  Panel/breaker work only:                          2–4 hrs
+  Meter base swap only:                             2–3 hrs
+  Per 10ft EMT conduit run:                         0.5 hrs
 
-BOXES:
-  Wall outlet/switch → 1-gang new work box + decora plate per device
-  Outdoor device → weatherproof box + cover
-  Canless LED wafer → NO box (self-mounting)
-  Dimmer → dimmer_led only, NOT also a switch
-
-EMT RUNS:
-  conduit (run ft) + connectors ×2 min + couplings (ceil(run/10)-1) + straps (ceil(run/6)) + THHN per conductor
-
-LABOR HOURS (baseline, adjust for difficulty/access):
-  EV charger install — residential, short run (under 20 ft, no panel issues): 4 hrs
-  EV charger install — residential, long run or attic/crawl: 5–6 hrs
-  EV charger install — commercial or outdoor pedestal: 6–8 hrs
-  Service upgrade 200A:             6–10 hrs
-  Service upgrade 400A:             10–16 hrs
-  Panel/breaker work:               2–4 hrs
-  Meter base swap only:             2–3 hrs
-  Per 10ft conduit run:             0.5 hrs
-
-  DEVICE INSTALL — tiered bulk rates (includes box, wire termination, device, plate):
-    1–5 devices:    0.50–0.75 hrs each
-    6–15 devices:   0.25–0.40 hrs each
-    16–30 devices:  0.15–0.25 hrs each
-    31+ devices:    0.10–0.18 hrs each
-  Use the MIDPOINT of the bracket. Apply to ALL devices when qty hits that tier.
-  Example: 50 receptacles = 50 × 0.14 = 7 hrs
-  Example: 20 switches    = 20 × 0.20 = 4 hrs
-  Example: 50 receptacles + 20 switches = 7 + 4 = 11 hrs total — NOT 96, NOT 50+
-
-  LIGHTING fixtures:
-    1–10 fixtures:  0.40–0.60 hrs each
-    11–30 fixtures: 0.25–0.35 hrs each
-    31+ fixtures:   0.15–0.22 hrs each
-
-  ACCESS MULTIPLIER (apply to total):
-    Open/new construction: ×1.0
-    Attic or crawlspace:   ×1.2
-    Finished walls:        ×1.35
-
-ALWAYS INCLUDE:
-  misc consumables (lot, $20–35) — every job
-  labels/directory — panel/service jobs only
-  Do NOT include surge protector unless requested
-
-STRICT RULES:
-  1. Use midpoint of ranges for unit costs — do not use minimum.
-  2. qty must use real math: wire = runLengthFt × 1.15, conduit fittings by formula above.
-  3. Return 6–14 material items and 1–4 labor tasks for any real job.
-  4. Do NOT pad with items not needed for this scope.
+KNOWN CORRECTIONS — apply these always:
+  - NM-B 6/3 price: $9.00/ft minimum, never use $2/ft
+  - NEMA 14-50: $76 minimum, never use retail $24 price
+  - EV charger labor: 4 hrs minimum for residential, never 2–3 hrs
+  - Recessed lights: always 25ft of NM-B 14/2 per fixture, never flat 35ft for whole circuit
+  - Service upgrade: always include ground rods (2), GEC wire, meter base
 `.trim();
 }
 
 // ---------------------------------------------------------------------------
-// Step 2b: assembly pricing prompt (whole-building)
+// Step 2b: assembly pricing prompt
 // ---------------------------------------------------------------------------
 
 function buildAssemblyPrompt(): string {
   return `
 You are a licensed electrical estimating assistant with 20 years of field experience.
-You receive a whole-building job intent. Return a REAL material list with actual items and quantities — NOT per-sqft categories.
-
-Return ONLY valid JSON — no markdown, no explanation.
+You receive a structured job intent for a whole-building or large assembly job.
+Return a complete material list and labor breakdown with CONTRACTOR PRICING.
+Return ONLY valid JSON — no markdown, no explanation, no code fences.
 
 {
   "materials": [
     {
-      "item":      "real item name (e.g. '200A main load center 40-space', 'NM-B 12/2 wire', '6\" canless wafer LED')",
+      "item":      "descriptive name",
       "qty":       number,
       "unit":      "ea|ft|lot",
       "unitCost":  number,
@@ -337,89 +279,17 @@ Return ONLY valid JSON — no markdown, no explanation.
   ],
   "labor": [
     {
-      "description": "phase (e.g. 'Rough-in wiring', 'Trim-out & devices', 'Panel hookup & testing')",
+      "description": "task description",
       "hours":       number
     }
   ]
 }
 
-HOW TO CALCULATE QUANTITIES FROM SQFT:
-
-RESIDENTIAL (per 1000 sqft, scale proportionally):
-  Outlets:         1 per 150 sqft → qty = round(sqft / 150)
-  Switches:        1 per 300 sqft → qty = round(sqft / 300)
-  GFCI outlets:    round(sqft / 600) + 4 (bathrooms + kitchen)
-  Recessed lights: 1 per 50 sqft of living area → qty = round(sqft / 50)
-  Light switches/dimmers: 1 per 200 sqft → qty = round(sqft / 200)
-  NM-B 12/2 wire: sqft × 2.5 ft (accounts for all branch circuits)
-  NM-B 14/2 wire: sqft × 0.8 ft (lighting circuits)
-  Breakers 20A 1-pole: round(sqft / 200) (general circuits)
-  Breakers 15A 1-pole: round(sqft / 300) (lighting circuits)
-  1-gang boxes:    outlets + switches
-  Main panel (200A 40-space): 1
-  Ground rods: 2
-  Misc consumables: 1 lot
-
-WAREHOUSE (per 1000 sqft):
-  LED high bay fixtures: 1 per 200 sqft → qty = round(sqft / 200)
-  20A duplex outlets: 1 per 500 sqft + perimeter outlets
-  EMT 3/4" conduit: sqft × 1.8 ft
-  THHN #12 wire: sqft × 4 ft (accounts for all circuits)
-  Breakers 20A 1-pole: round(sqft / 400)
-  2-pole 60A breakers (equipment): round(sqft / 2000)
-  400A main panel (if >5000 sqft) or 200A panel: 1
-  Meter base: 1
-  Ground rods: 2
-  EMT connectors: round(conduit_ft / 10) × 2
-  EMT straps: round(conduit_ft / 6)
-  Misc consumables: 1 lot
-
-COMMERCIAL / OFFICE (per 1000 sqft):
-  Duplex outlets: 1 per 60 sqft → qty = round(sqft / 60)
-  GFCI outlets: round(sqft / 400) + 6
-  Single-pole switches: round(sqft / 200)
-  LED panel lights or recessed: 1 per 80 sqft
-  MC cable 12/2: sqft × 3 ft
-  Breakers 20A 1-pole: round(sqft / 150)
-  200A panel or larger: 1
-  Meter base: 1
-  Ground rods: 2
-  Misc consumables: 1 lot
-
-PRICING — contractor (supply house) cost, NOT retail:
-  200A load center (40-sp):  $220–280 ea
-  TR 20A duplex outlet:      $3–5 ea
-  GFCI 20A receptacle:       $14–18 ea
-  Single-pole switch:        $2–4 ea
-  LED dimmer:                $22–32 ea
-  6" canless wafer LED:      $16–22 ea
-  LED high bay fixture:      $120–180 ea
-  LED 2x4 troffer:           $55–85 ea
-  NM-B 12/2:                 $0.75–0.90/ft
-  NM-B 14/2:                 $0.55–0.70/ft
-  MC cable 12/2:             $1.20–1.50/ft
-  3/4" EMT conduit:          $0.70–0.95/ft
-  THHN #12:                  $0.18/ft
-  1-gang new work box:       $0.90–1.20 ea
-  Meter base 200A:           $130–175 ea
-  Ground rod 5/8"×8ft:       $18–26 ea
-  Misc consumables (lot):    $150–300 lot
-
-LABOR HOURS:
-  Residential rough-in:  sqft × 0.014 hrs
-  Residential trim-out:  sqft × 0.010 hrs
-  Warehouse rough-in:    sqft × 0.022 hrs
-  Warehouse trim-out:    sqft × 0.010 hrs
-  Commercial rough-in:   sqft × 0.030 hrs
-  Commercial trim-out:   sqft × 0.015 hrs
-
-RULES:
-  1. Use REAL item names a customer can understand — not category labels like "Branch circuit wiring".
-  2. Use midpoint of price ranges.
-  3. Calculate actual quantities using the formulas above scaled to the actual sqft.
-  4. If sqft = 0, use 2000 for residential, 4000 for warehouse, 3000 for commercial.
-  5. Return 10–18 real material items and 2–4 labor phases.
-  6. Do NOT use "sqft" as a unit — use ea, ft, or lot only.
+Use the same pricing rules as line-item. For assembly jobs:
+- Calculate wire quantities from sqft and circuit counts
+- Include ALL rough-in boxes, devices, panels, service entrance
+- Labor bulk rate: 31+ devices = 0.10–0.18 hrs each
+- Always include: service entrance, main panel, ground rods, GEC
 `.trim();
 }
 
@@ -427,20 +297,13 @@ RULES:
 // Helpers
 // ---------------------------------------------------------------------------
 
-function round2(n: number): number {
-  return Math.round(n * 100) / 100;
-}
-
+function round2(n: number): number { return Math.round(n * 100) / 100; }
 function clampQty(v: unknown): number {
   const n = Number(v);
-  if (!Number.isFinite(n) || n <= 0) return 1;
-  return Math.min(99999, Math.round(n * 100) / 100);
+  return Number.isFinite(n) && n > 0 ? round2(n) : 1;
 }
 
-function sanitizeMaterials(
-  raw: any[],
-  materialCostIndex: number
-): MaterialLine[] {
+function sanitizeMaterials(raw: any[], materialCostIndex: number): MaterialLine[] {
   if (!Array.isArray(raw)) return [];
   return raw
     .filter((m) => m && typeof m.item === "string" && typeof m.unitCost === "number")
@@ -475,15 +338,21 @@ function sanitizeLabor(raw: any[], laborRate: number): LaborLine[] {
     });
 }
 
+function parseJSON(text: string): any {
+  // Strip markdown code fences if Claude wraps in them
+  const clean = text.replace(/^```(?:json)?\n?/i, "").replace(/\n?```$/i, "").trim();
+  return JSON.parse(clean);
+}
+
 // ---------------------------------------------------------------------------
 // POST handler
 // ---------------------------------------------------------------------------
 
 export async function POST(req: Request) {
   try {
-    const apiKey = process.env.OPENAI_API_KEY;
+    const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
-      return Response.json({ error: "OPENAI_API_KEY is not set." }, { status: 500 });
+      return Response.json({ error: "ANTHROPIC_API_KEY is not set." }, { status: 500 });
     }
 
     const body = (await req.json()) as {
@@ -501,82 +370,63 @@ export async function POST(req: Request) {
 
     const jobType           = (body.jobType ?? "Residential").trim();
     const zipCode           = (body.zipCode ?? "").trim();
-    const laborRate         = typeof body.laborRate         === "number" ? body.laborRate         : 150;
+    const laborRate         = typeof body.laborRate         === "number" ? body.laborRate         : 125;
     const markupPct         = typeof body.markupPct         === "number" ? body.markupPct         : 20;
-    const permitFee         = typeof body.permitFee         === "number" ? body.permitFee         : 0;
+    const permitFee         = typeof body.permitFee         === "number" ? body.permitFee         : 125;
     const materialCostIndex = typeof body.materialCostIndex === "number" ? body.materialCostIndex : 1.0;
 
-    // Build enriched description with job context
     const enrichedDescription = `JOB TYPE: ${jobType}\nZIP CODE: ${zipCode}\nDESCRIPTION: ${description}`;
 
-    const client = new OpenAI({ apiKey });
+    const client = new Anthropic({ apiKey });
     console.log("[/api/estimate] start — jobType:", jobType, "zip:", zipCode, "laborRate:", laborRate);
 
-    const controller = new AbortController();
-    const timeout    = setTimeout(() => controller.abort(), 50_000);
-    const t0         = Date.now();
+    const t0 = Date.now();
 
     // ── Step 1: extract intent ──
-    let intentRes: Awaited<ReturnType<typeof client.chat.completions.create>>;
+    let intentText: string;
     try {
-      intentRes = await client.chat.completions.create(
-        {
-          model:           "gpt-4o",
-          max_tokens:      600,
-          temperature:     0,
-          response_format: { type: "json_object" },
-          messages: [
-            { role: "system", content: buildIntentPrompt() },
-            { role: "user",   content: enrichedDescription },
-          ],
-        },
-        { signal: controller.signal }
-      );
-    } catch (err: unknown) {
-      clearTimeout(timeout);
-      if (err instanceof Error && (err.name === "AbortError" || err.message.includes("abort"))) throw new Error("OpenAI request timed out");
-      throw err;
+      const res = await client.messages.create({
+        model:      "claude-sonnet-4-6",
+        max_tokens: 1024,
+        system:     buildIntentPrompt(),
+        messages:   [{ role: "user", content: enrichedDescription }],
+      });
+      intentText = res.content[0].type === "text" ? res.content[0].text : "";
+    } catch (err) {
+      console.error("[/api/estimate] step1 error:", err);
+      return Response.json({ error: "Step 1 failed — please try again." }, { status: 502 });
     }
 
     console.log("[/api/estimate] step1 ms:", Date.now() - t0);
 
     let intent: any = null;
-    try { intent = JSON.parse(intentRes.choices?.[0]?.message?.content ?? ""); }
+    try { intent = parseJSON(intentText); }
     catch { return Response.json({ error: "Model returned invalid JSON (step 1)." }, { status: 502 }); }
 
-    console.log("[/api/estimate] jobType:", intent?.jobType, "scopeType:", intent?.scopeType, "sqft:", intent?.scope?.sqft);
+    console.log("[/api/estimate] jobType:", intent?.jobType, "scopeType:", intent?.scopeType);
 
     // ── Step 2: price the job ──
     const isAssembly = intent?.scopeType === "assembly";
     const prompt2    = isAssembly ? buildAssemblyPrompt() : buildLineItemPrompt();
 
-    let pricingRes: Awaited<ReturnType<typeof client.chat.completions.create>>;
+    let pricingText: string;
     try {
-      pricingRes = await client.chat.completions.create(
-        {
-          model:           "gpt-4o",
-          max_tokens:      1400,
-          temperature:     0,
-          response_format: { type: "json_object" },
-          messages: [
-            { role: "system", content: prompt2 },
-            { role: "user",   content: JSON.stringify({ ...intent, jobType, zipCode }) },
-          ],
-        },
-        { signal: controller.signal }
-      );
-    } catch (err: unknown) {
-      clearTimeout(timeout);
-      if (err instanceof Error && (err.name === "AbortError" || err.message.includes("abort"))) throw new Error("OpenAI request timed out");
-      throw err;
-    } finally {
-      clearTimeout(timeout);
+      const res = await client.messages.create({
+        model:      "claude-sonnet-4-6",
+        max_tokens: 2048,
+        system:     prompt2,
+        messages:   [{ role: "user", content: JSON.stringify({ ...intent, jobType, zipCode }) }],
+      });
+      pricingText = res.content[0].type === "text" ? res.content[0].text : "";
+    } catch (err) {
+      console.error("[/api/estimate] step2 error:", err);
+      return Response.json({ error: "Step 2 failed — please try again." }, { status: 502 });
     }
 
     console.log("[/api/estimate] step2 ms:", Date.now() - t0);
 
     let priced: any = null;
-    try { priced = JSON.parse(pricingRes.choices?.[0]?.message?.content ?? ""); }
+    try { priced = parseJSON(pricingText); }
     catch { return Response.json({ error: "Model returned invalid JSON (step 2)." }, { status: 502 }); }
 
     // ── Sanitize & calculate ──
@@ -590,15 +440,15 @@ export async function POST(req: Request) {
     const markup        = round2(subtotal * (markupPct / 100));
     const finalTotal    = round2(subtotal + markup);
 
-    const sqft          = Number(intent?.scope?.sqft ?? 0);
-    const ratePerSqft   = sqft > 0 ? round2(finalTotal / sqft) : undefined;
+    const sqft         = Number(intent?.scope?.sqft ?? 0);
+    const ratePerSqft  = sqft > 0 ? round2(finalTotal / sqft) : undefined;
 
     const assumptions = Array.isArray(intent?.assumptions)
       ? intent.assumptions.filter((x: unknown): x is string => typeof x === "string").slice(0, 4)
       : [];
 
     if (materialCostIndex !== 1.0) {
-      assumptions.push(`Material cost index applied: ${materialCostIndex}× (${materialCostIndex > 1 ? "prices running above" : "below"} baseline).`);
+      assumptions.push(`Material cost index applied: ${materialCostIndex}×`);
     }
     if (sqft === 0 && isAssembly) {
       assumptions.push("Square footage not provided — used default for building type.");
@@ -607,11 +457,11 @@ export async function POST(req: Request) {
       assumptions.push(`Effective rate: $${ratePerSqft.toFixed(2)}/sq ft all-in.`);
     }
 
-    console.log("[/api/estimate] materialTotal:", materialTotal, "laborTotal:", laborTotal, "finalTotal:", finalTotal, "laborHours:", laborHours);
+    console.log("[/api/estimate] materialTotal:", materialTotal, "laborTotal:", laborTotal, "finalTotal:", finalTotal);
 
-    const baseSummary = typeof intent?.summary === "string" ? intent.summary.trim() : "Electrical scope estimate.";
+    const baseSummary   = typeof intent?.summary === "string" ? intent.summary.trim() : "Electrical scope estimate.";
     const summaryPrefix = `${jobType} · ${zipCode}`;
-    const summary = `${summaryPrefix} — ${baseSummary}`;
+    const summary       = `${summaryPrefix} — ${baseSummary}`;
 
     const result: EstimateResult = {
       summary,
