@@ -233,18 +233,24 @@ BREAKER SIZING:
   EV 32A EVSE → 40A 2-pole | EV 40A → 50A 2-pole | EV 48A → 60A 2-pole
   Dryer → 30A 2-pole | Range → 50A 2-pole | Standard outlet → 20A 1-pole
 
-LABOR HOURS:
-  EV charger residential short run (under 50ft):    4 hrs
-  EV charger residential long run (over 50ft):      5–6 hrs
-  EV charger commercial/outdoor:                    6–8 hrs
-  Service upgrade 200A residential:                 8–12 hrs
-  Service upgrade 400A residential:                 12–16 hrs
-  Service upgrade 400A commercial:                  16–24 hrs
-  Per recessed light (attic access):                1.0 hr
-  Per recessed light (finished ceiling):            1.5 hrs
-  Panel/breaker work only:                          2–4 hrs
-  Meter base swap only:                             2–3 hrs
-  Per 10ft EMT conduit run:                         0.5 hrs
+LABOR HOURS — TOTAL JOB BUDGET (not per task):
+  Use these as the TOTAL hours for the entire job. Split across tasks but do NOT exceed the total.
+
+  EV charger residential short run (under 50ft):    TOTAL = 4 hrs
+  EV charger residential long run (over 50ft):      TOTAL = 5 hrs
+  EV charger commercial/outdoor:                    TOTAL = 6 hrs
+  Service upgrade 200A residential:                 TOTAL = 8 hrs
+  Service upgrade 400A residential:                 TOTAL = 10 hrs
+  Service upgrade 400A commercial:                  TOTAL = 12 hrs
+  Meter base swap only:                             TOTAL = 2.5 hrs
+  Panel/breaker work only:                          TOTAL = 3 hrs
+  Per recessed light (attic access):                1.0 hr each
+  Per recessed light (finished ceiling):            1.5 hrs each
+  Outlet/switch install:                            0.5 hrs each
+
+  CRITICAL RULE: Sum of all labor task hours MUST equal the total budget above.
+  DO NOT add extra tasks like "cleanup", "testing", "inspection prep" that inflate the total.
+  If you have 3 tasks for a 4-hr job, split as: 1.5 + 1.5 + 1.0 = 4.0 hrs exactly.
 
 KNOWN CORRECTIONS — apply these always:
   - NM-B 6/3 price: $9.00/ft minimum, never use $2/ft
@@ -325,10 +331,10 @@ function sanitizeMaterials(raw: any[], materialCostIndex: number): MaterialLine[
 
 function sanitizeLabor(raw: any[], laborRate: number): LaborLine[] {
   if (!Array.isArray(raw)) return [];
-  return raw
+  const lines = raw
     .filter((l) => l && typeof l.description === "string" && typeof l.hours === "number")
     .map((l) => {
-      const hours = Math.max(0.25, Math.round(Number(l.hours) * 100) / 100);
+      const hours = Math.max(1, Math.round(Number(l.hours) * 100) / 100);
       return {
         description: l.description.trim(),
         hours,
@@ -336,6 +342,18 @@ function sanitizeLabor(raw: any[], laborRate: number): LaborLine[] {
         total:       round2(hours * laborRate),
       };
     });
+
+  // Hard cap: total labor hours across all tasks cannot exceed 16
+  const totalHours = lines.reduce((s, l) => s + l.hours, 0);
+  if (totalHours > 16) {
+    const scale = 16 / totalHours;
+    return lines.map(l => ({
+      ...l,
+      hours: round2(l.hours * scale),
+      total: round2(l.hours * scale * laborRate),
+    }));
+  }
+  return lines;
 }
 
 function parseJSON(text: string): any {

@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { getProjects, type Project } from "../../../../lib/projectStore";
 import { generateEstimatePdf } from "../../../../lib/generateEstimatePdf";
 import { loadProfile } from "../../../../lib/userProfile";
-import { saveEstimate, getEstimate } from "../../../../lib/estimateStore";
+import { saveEstimate, updateEstimate, getEstimate } from "../../../../lib/estimateStore";
 
 const DS = {
   shell:       "#0B0F1A",
@@ -132,6 +132,8 @@ export default function NewEstimatePage() {
   const draftKey     = `sparcbid:draft-estimate:${projectId ?? "unknown"}`;
 
   const [project,           setProject]          = useState<Project | null>(null);
+  const currentEstimateId = useRef<string | null>(null);
+  const isSaving          = useRef(false);
   const [uiState,           setUiState]          = useState<UIState>({ isSaved: false });
   const [savedConfirm,      setSavedConfirm]     = useState(false);
   const [jobDescription,    setJobDescription]   = useState("");
@@ -156,9 +158,11 @@ export default function NewEstimatePage() {
     if (projectId) getProjects().then((all) => setProject(all.find((p) => p.id === projectId) ?? null));
   }, [projectId]);
 
-  // Restore draft
+  // Restore draft from localStorage — only if no ?load= param (fresh form should be clean)
   useEffect(() => {
     if (!projectId) return;
+    const loadId = searchParams?.get("load");
+    if (loadId) return; // loading a saved estimate — don't restore draft
     const raw = localStorage.getItem(draftKey);
     if (!raw) return;
     try {
@@ -179,6 +183,7 @@ export default function NewEstimatePage() {
     if (!loadId) return;
     getEstimate(loadId).then((saved) => {
       if (!saved) return;
+      currentEstimateId.current = saved.id;
       setEstimate({ generatedAt: saved.savedAt, summary: saved.snapshot.summary, assumptions: saved.snapshot.assumptions, scopeType: saved.snapshot.scopeType, materials: saved.snapshot.materials, labor: saved.snapshot.labor, laborHours: saved.snapshot.laborHours, sqft: saved.snapshot.sqft, ratePerSqft: saved.snapshot.ratePerSqft });
       setLaborRate(saved.snapshot.laborRate);
       setMarkupPct(saved.snapshot.markupPct);
@@ -221,13 +226,18 @@ export default function NewEstimatePage() {
 
   function saveDraft() {
     if (!projectId) return;
-    const payload: Draft = { savedAt: new Date().toISOString(), jobDescription: jobDescription.trim(), estimate: estimate ?? undefined, laborRate, markupPct, permitFee, materialCostIndex };
-    localStorage.setItem(draftKey, JSON.stringify(payload));
-    setUiState({ isSaved: true, lastSavedAt: payload.savedAt });
+    setUiState({ isSaved: true, lastSavedAt: new Date().toISOString() });
     setSavedConfirm(true);
     setTimeout(() => setSavedConfirm(false), 2000);
     if (estimate && totals) {
-      saveEstimate(projectId, jobDescription.trim(), { summary: estimate.summary, assumptions: estimate.assumptions, scopeType: estimate.scopeType, materials: materialLines, labor: estimate.labor, laborHours: estimate.laborHours, sqft: estimate.sqft, ratePerSqft: totals.ratePerSqft, laborRate, markupPct, permitFee });
+      const snapshot = { summary: estimate.summary, assumptions: estimate.assumptions, scopeType: estimate.scopeType, materials: materialLines, labor: estimate.labor, laborHours: estimate.laborHours, sqft: estimate.sqft, ratePerSqft: totals.ratePerSqft, laborRate, markupPct, permitFee };
+      if (currentEstimateId.current) {
+        updateEstimate(currentEstimateId.current, jobDescription.trim(), snapshot);
+      } else {
+        saveEstimate(projectId, jobDescription.trim(), snapshot).then((saved) => {
+          if (saved) currentEstimateId.current = saved.id;
+        });
+      }
     }
   }
 
@@ -258,7 +268,20 @@ export default function NewEstimatePage() {
         ratePerSqft: typeof data.ratePerSqft === "number" ? data.ratePerSqft : undefined,
       };
       setEstimate(generated); setProgress(100); setShowAllMaterials(false); setGenState({ status: "ready" });
-      if (projectId) { const payload: Draft = { savedAt: new Date().toISOString(), jobDescription: text, estimate: generated, laborRate, markupPct, permitFee, materialCostIndex }; localStorage.setItem(draftKey, JSON.stringify(payload)); setUiState({ isSaved: true, lastSavedAt: payload.savedAt }); }
+      // Save to DB exactly once — capture ID to prevent duplicates on subsequent saves
+      if (projectId) {
+        const lines = generated.materials.map((m) => ({ ...m, lineTotal: r2(m.qty * m.unitCost) }));
+        saveEstimate(projectId, text, {
+          summary: generated.summary, assumptions: generated.assumptions,
+          scopeType: generated.scopeType, materials: lines, labor: generated.labor,
+          laborHours: generated.laborHours, sqft: generated.sqft,
+          ratePerSqft: generated.ratePerSqft, laborRate, markupPct, permitFee,
+        }).then((saved) => {
+          if (saved) currentEstimateId.current = saved.id;
+        });
+        localStorage.removeItem(draftKey);
+        setUiState({ isSaved: true, lastSavedAt: new Date().toISOString() });
+      }
     } catch (e: unknown) {
       setGenState({ status: "error", msg: e instanceof Error && e.name === "AbortError" ? "Request timed out." : "Request failed — please try again." });
     } finally { window.clearTimeout(timeoutId); }
@@ -267,6 +290,8 @@ export default function NewEstimatePage() {
   function clearEstimate() {
     setJobDescription(""); setEstimate(null); setProgress(0);
     setGenState({ status: "idle" }); setShowAllMaterials(false);
+    currentEstimateId.current = null;
+    isSaving.current = false;
     if (projectId) { localStorage.removeItem(draftKey); setUiState({ isSaved: false }); }
     const url = new URL(window.location.href); url.searchParams.delete("load"); window.history.replaceState({}, "", url.toString());
   }
@@ -685,6 +710,7 @@ export default function NewEstimatePage() {
                   <div className="vs-total-item">
                     <div className="vs-total-item-label">Permit Fee</div>
                     <div className="vs-total-item-value">${fmt(permitFee)}</div>
+                    <div style={{ fontSize: 10, color: DS.text3, marginTop: 2 }}>editable in Pricing Settings ↑</div>
                   </div>
                   <div className="vs-total-item">
                     <div className="vs-total-item-label">Subtotal</div>

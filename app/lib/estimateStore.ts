@@ -99,6 +99,37 @@ export async function saveEstimate(
   return data ? toEstimate(data) : null;
 }
 
+export async function updateEstimate(
+  id: string,
+  description: string,
+  snapshot: EstimateSnapshot,
+): Promise<SavedEstimate | null> {
+  const mat        = snapshot.materials.reduce((s: number, m: any) => s + (m.lineTotal ?? 0), 0);
+  const lab        = snapshot.laborHours * snapshot.laborRate;
+  const sub        = mat + lab + (snapshot.permitFee ?? 0);
+  const finalTotal = Math.round((sub + sub * ((snapshot.markupPct ?? 0) / 100)) * 100) / 100;
+
+  const { data, error } = await supabase
+    .from("estimates")
+    .update({
+      description:    description.slice(0, 120),
+      final_total:    finalTotal,
+      labor_hours:    snapshot.laborHours,
+      labor_total:    lab,
+      material_total: mat,
+      scope_type:     snapshot.scopeType,
+      sqft:           snapshot.sqft ?? null,
+      snapshot,
+      saved_at:       new Date().toISOString(),
+    })
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) { console.error("[estimateStore] updateEstimate:", error); return null; }
+  return data ? toEstimate(data) : null;
+}
+
 export async function deleteEstimate(id: string): Promise<void> {
   const { error } = await supabase.from("estimates").delete().eq("id", id);
   if (error) console.error("[estimateStore] deleteEstimate:", error);
