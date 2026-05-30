@@ -268,6 +268,10 @@ export default function NewEstimatePage() {
         ratePerSqft: typeof data.ratePerSqft === "number" ? data.ratePerSqft : undefined,
       };
       setEstimate(generated); setProgress(100); setShowAllMaterials(false); setGenState({ status: "ready" });
+      // Apply zip-code-based labor rate returned from API
+      if (typeof data.laborRate === "number") setLaborRate(data.laborRate);
+      // Apply AI-suggested permit fee if provided
+      if (typeof data.suggestedPermitFee === "number" && data.suggestedPermitFee > 0) setPermitFee(data.suggestedPermitFee);
       // Save to DB exactly once — capture ID to prevent duplicates on subsequent saves
       if (projectId) {
         const lines = generated.materials.map((m) => ({ ...m, lineTotal: r2(m.qty * m.unitCost) }));

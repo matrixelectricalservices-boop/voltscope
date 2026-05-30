@@ -97,8 +97,26 @@ RULES:
 function buildLineItemPrompt(): string {
   return `
 You are a licensed electrical estimating assistant with 20 years of field experience.
+You use NECA Manual of Labor Units as your standard for labor hours.
 You receive a structured job intent. Return a precise material list and labor with CONTRACTOR PRICING.
 Return ONLY valid JSON — no markdown, no explanation, no code fences.
+
+NECA LABOR UNITS (use these — whole hours only, round up):
+  Receptacle/outlet install:          1 hr each
+  Switch install:                     1 hr each
+  Dimmer install:                     1 hr each
+  Recessed light (open ceiling):      2 hrs each
+  Recessed light (finished ceiling):  3 hrs each
+  Panel install 200A:                 8 hrs
+  Panel install 400A:                 12 hrs
+  Service entrance 200A:              6 hrs
+  Service entrance 400A:              10 hrs
+  Meter base swap:                    4 hrs
+  EV charger circuit (under 50ft):    5 hrs
+  EV charger circuit (over 50ft):     7 hrs
+  Per 10ft EMT conduit:               1 hr
+  Ground rod installation:            1 hr each
+  Circuit breaker installation:       1 hr each
 
 {
   "materials": [
@@ -233,24 +251,29 @@ BREAKER SIZING:
   EV 32A EVSE → 40A 2-pole | EV 40A → 50A 2-pole | EV 48A → 60A 2-pole
   Dryer → 30A 2-pole | Range → 50A 2-pole | Standard outlet → 20A 1-pole
 
-LABOR HOURS — TOTAL JOB BUDGET (not per task):
+LABOR HOURS — TOTAL JOB BUDGET (mid to high end, whole hours only — NO partial hours):
   Use these as the TOTAL hours for the entire job. Split across tasks but do NOT exceed the total.
+  ALL hours must be whole numbers — never use decimals like 1.5 or 15.99.
 
-  EV charger residential short run (under 50ft):    TOTAL = 4 hrs
-  EV charger residential long run (over 50ft):      TOTAL = 5 hrs
-  EV charger commercial/outdoor:                    TOTAL = 6 hrs
-  Service upgrade 200A residential:                 TOTAL = 8 hrs
-  Service upgrade 400A residential:                 TOTAL = 10 hrs
-  Service upgrade 400A commercial:                  TOTAL = 12 hrs
-  Meter base swap only:                             TOTAL = 2.5 hrs
-  Panel/breaker work only:                          TOTAL = 3 hrs
-  Per recessed light (attic access):                1.0 hr each
-  Per recessed light (finished ceiling):            1.5 hrs each
-  Outlet/switch install:                            0.5 hrs each
+  EV charger residential short run (under 50ft):    TOTAL = 5 hrs
+  EV charger residential long run (over 50ft):      TOTAL = 7 hrs
+  EV charger commercial/outdoor:                    TOTAL = 9 hrs
+  Service upgrade 200A residential:                 TOTAL = 12 hrs
+  Service upgrade 400A residential:                 TOTAL = 16 hrs
+  Service upgrade 400A commercial:                  TOTAL = 20 hrs
+  Meter base swap only:                             TOTAL = 4 hrs
+  Panel/breaker work only:                          TOTAL = 5 hrs
+  Per recessed light (attic access):                2 hrs each
+  Per recessed light (finished ceiling):            3 hrs each
+  Outlet/switch install:                            1 hr each
+  Commercial new construction per 1000 sqft:        40 hrs
+  Warehouse new construction per 1000 sqft:         35 hrs
+  Residential new construction per 1000 sqft:       30 hrs
 
-  CRITICAL RULE: Sum of all labor task hours MUST equal the total budget above.
-  DO NOT add extra tasks like "cleanup", "testing", "inspection prep" that inflate the total.
-  If you have 3 tasks for a 4-hr job, split as: 1.5 + 1.5 + 1.0 = 4.0 hrs exactly.
+  CRITICAL RULES:
+  1. ALL individual task hours must be whole numbers (1, 2, 3 etc — never 1.5, 0.75, 15.99)
+  2. Sum of all labor task hours must equal or be close to the total budget above
+  3. DO NOT add extra tasks like cleanup, testing, or inspection prep
 
 KNOWN CORRECTIONS — apply these always:
   - NM-B 6/3 price: $9.00/ft minimum, never use $2/ft
@@ -268,9 +291,21 @@ KNOWN CORRECTIONS — apply these always:
 function buildAssemblyPrompt(): string {
   return `
 You are a licensed electrical estimating assistant with 20 years of field experience.
+You use NECA Manual of Labor Units as your standard for labor hours.
 You receive a structured job intent for a whole-building or large assembly job.
 Return a complete material list and labor breakdown with CONTRACTOR PRICING.
-Return ONLY valid JSON — no markdown, no explanation, no code fences.
+Return ONLY valid JSON — no markdown, no explanation, no code fences. Keep the list concise — combine similar items, max 20 material line items.
+
+NECA LABOR UNITS for large jobs (whole hours only):
+  Per outlet/device rough-in:         1 hr each
+  Per light fixture:                  2 hrs each
+  Per 100 sqft commercial wiring:     4 hrs
+  Per 100 sqft warehouse wiring:      3 hrs
+  Per 100 sqft residential wiring:    2.5 hrs
+  Panel install 200A:                 8 hrs
+  Panel install 400A:                 12 hrs
+  Service entrance complete:          16 hrs
+  Per 10ft conduit run:               1 hr
 
 {
   "materials": [
@@ -291,11 +326,14 @@ Return ONLY valid JSON — no markdown, no explanation, no code fences.
   ]
 }
 
-Use the same pricing rules as line-item. For assembly jobs:
-- Calculate wire quantities from sqft and circuit counts
-- Include ALL rough-in boxes, devices, panels, service entrance
-- Labor bulk rate: 31+ devices = 0.10–0.18 hrs each
-- Always include: service entrance, main panel, ground rods, GEC
+RULES:
+- Max 20 material line items total — combine similar items (e.g. all wire as one line, all boxes as one line)
+- Max 4 labor line items total
+- Use contractor supply house pricing
+- For warehouse/commercial: use EMT conduit and THHN wire
+- Labor bulk rate for large installs: 0.15 hrs per device/fixture
+- Always include: main panel, service entrance, ground rods, branch circuits, lighting fixtures
+- Calculate wire from sqft: 1 circuit per 400 sqft, 2.5 wire-ft per sqft of floor area
 `.trim();
 }
 
@@ -331,10 +369,10 @@ function sanitizeMaterials(raw: any[], materialCostIndex: number): MaterialLine[
 
 function sanitizeLabor(raw: any[], laborRate: number): LaborLine[] {
   if (!Array.isArray(raw)) return [];
-  const lines = raw
+  return raw
     .filter((l) => l && typeof l.description === "string" && typeof l.hours === "number")
     .map((l) => {
-      const hours = Math.max(1, Math.round(Number(l.hours) * 100) / 100);
+      const hours = Math.max(1, Math.round(Number(l.hours)));
       return {
         description: l.description.trim(),
         hours,
@@ -342,24 +380,63 @@ function sanitizeLabor(raw: any[], laborRate: number): LaborLine[] {
         total:       round2(hours * laborRate),
       };
     });
-
-  // Hard cap: total labor hours across all tasks cannot exceed 16
-  const totalHours = lines.reduce((s, l) => s + l.hours, 0);
-  if (totalHours > 16) {
-    const scale = 16 / totalHours;
-    return lines.map(l => ({
-      ...l,
-      hours: round2(l.hours * scale),
-      total: round2(l.hours * scale * laborRate),
-    }));
-  }
-  return lines;
 }
 
 function parseJSON(text: string): any {
-  // Strip markdown code fences if Claude wraps in them
   const clean = text.replace(/^```(?:json)?\n?/i, "").replace(/\n?```$/i, "").trim();
   return JSON.parse(clean);
+}
+
+// ---------------------------------------------------------------------------
+// Zip code → regional labor rate (high end)
+// ---------------------------------------------------------------------------
+
+function getLaborRateForZip(zip: string, jobType: string): number {
+  const prefix = parseInt(zip.substring(0, 3), 10);
+
+  // Base rates by job type (high end national average)
+  const base: Record<string, number> = {
+    Residential: 145,
+    Commercial:  185,
+    Industrial:  225,
+  };
+  const baseRate = base[jobType] ?? 185;
+
+  if (isNaN(prefix)) return baseRate; // unrecognized zip → national average
+
+  // High cost metros
+  if (prefix >= 100 && prefix <= 104) return Math.round(baseRate * 1.55); // NYC
+  if (prefix >= 110 && prefix <= 119) return Math.round(baseRate * 1.45); // NYC suburbs
+  if (prefix >= 200 && prefix <= 205) return Math.round(baseRate * 1.35); // DC/Northern VA
+  if (prefix >= 206 && prefix <= 212) return Math.round(baseRate * 1.30); // Baltimore/MD
+  if (prefix >= 600 && prefix <= 609) return Math.round(baseRate * 1.35); // Chicago
+  if (prefix >= 900 && prefix <= 908) return Math.round(baseRate * 1.40); // LA
+  if (prefix >= 940 && prefix <= 942) return Math.round(baseRate * 1.50); // SF Bay Area
+  if (prefix >= 980 && prefix <= 982) return Math.round(baseRate * 1.40); // Seattle
+  if (prefix >= 970 && prefix <= 972) return Math.round(baseRate * 1.25); // Portland
+  if (prefix >= 800 && prefix <= 804) return Math.round(baseRate * 1.20); // Denver
+  if (prefix >= 10  && prefix <= 29)  return Math.round(baseRate * 1.30); // NE corridor
+
+  // Mid cost
+  if (prefix >= 750 && prefix <= 752) return Math.round(baseRate * 1.10); // Dallas
+  if (prefix >= 770 && prefix <= 772) return Math.round(baseRate * 1.10); // Houston
+  if (prefix >= 850 && prefix <= 853) return Math.round(baseRate * 1.05); // Phoenix
+  if (prefix >= 480 && prefix <= 482) return Math.round(baseRate * 1.15); // Detroit
+  if (prefix >= 553 && prefix <= 554) return Math.round(baseRate * 1.15); // Minneapolis
+  if (prefix >= 303 && prefix <= 305) return Math.round(baseRate * 1.05); // Atlanta
+  if (prefix >= 331 && prefix <= 334) return Math.round(baseRate * 1.10); // Miami
+
+  // Low cost (Southeast, rural)
+  if (prefix >= 270 && prefix <= 289) return Math.round(baseRate * 0.90); // NC
+  if (prefix >= 290 && prefix <= 299) return Math.round(baseRate * 0.90); // SC
+  if (prefix >= 350 && prefix <= 369) return Math.round(baseRate * 0.85); // AL
+  if (prefix >= 380 && prefix <= 399) return Math.round(baseRate * 0.85); // MS/TN
+  if (prefix >= 370 && prefix <= 379) return Math.round(baseRate * 0.88); // TN
+  if (prefix >= 300 && prefix <= 319) return Math.round(baseRate * 0.92); // GA
+  if (prefix >= 700 && prefix <= 729) return Math.round(baseRate * 0.88); // Louisiana/AR
+
+  // National average high end (unrecognized zip)
+  return baseRate;
 }
 
 // ---------------------------------------------------------------------------
@@ -388,7 +465,9 @@ export async function POST(req: Request) {
 
     const jobType           = (body.jobType ?? "Residential").trim();
     const zipCode           = (body.zipCode ?? "").trim();
-    const laborRate         = typeof body.laborRate         === "number" ? body.laborRate         : 125;
+    const laborRate         = zipCode.length === 5
+      ? getLaborRateForZip(zipCode, jobType)
+      : (typeof body.laborRate === "number" ? body.laborRate : 145);
     const markupPct         = typeof body.markupPct         === "number" ? body.markupPct         : 20;
     const permitFee         = typeof body.permitFee         === "number" ? body.permitFee         : 125;
     const materialCostIndex = typeof body.materialCostIndex === "number" ? body.materialCostIndex : 1.0;
@@ -409,7 +488,7 @@ export async function POST(req: Request) {
         system:     buildIntentPrompt(),
         messages:   [{ role: "user", content: enrichedDescription }],
       });
-      intentText = res.content[0].type === "text" ? res.content[0].text : "";
+      intentText = res.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("");
     } catch (err) {
       console.error("[/api/estimate] step1 error:", err);
       return Response.json({ error: "Step 1 failed — please try again." }, { status: 502 });
@@ -431,11 +510,11 @@ export async function POST(req: Request) {
     try {
       const res = await client.messages.create({
         model:      "claude-sonnet-4-6",
-        max_tokens: 2048,
+        max_tokens: 4096,
         system:     prompt2,
         messages:   [{ role: "user", content: JSON.stringify({ ...intent, jobType, zipCode }) }],
       });
-      pricingText = res.content[0].type === "text" ? res.content[0].text : "";
+      pricingText = res.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("");
     } catch (err) {
       console.error("[/api/estimate] step2 error:", err);
       return Response.json({ error: "Step 2 failed — please try again." }, { status: 502 });
@@ -445,10 +524,25 @@ export async function POST(req: Request) {
 
     let priced: any = null;
     try { priced = parseJSON(pricingText); }
-    catch { return Response.json({ error: "Model returned invalid JSON (step 2)." }, { status: 502 }); }
+    catch {
+      console.error("[/api/estimate] step2 raw response:", pricingText.substring(0, 500));
+      return Response.json({ error: "Model returned invalid JSON (step 2)." }, { status: 502 });
+    }
 
     // ── Sanitize & calculate ──
-    const materials    = sanitizeMaterials(priced?.materials ?? [], materialCostIndex);
+    // Strip permit fee from materials — we handle it separately
+    const permitFromMaterials = priced?.materials?.find((m: any) =>
+      typeof m.item === "string" && m.item.toLowerCase().includes("permit")
+    );
+    const suggestedPermitFee = permitFromMaterials
+      ? Math.round(Number(permitFromMaterials.unitCost ?? permitFromMaterials.lineTotal ?? permitFee))
+      : permitFee;
+
+    const rawMaterials = (priced?.materials ?? []).filter((m: any) =>
+      typeof m.item === "string" && !m.item.toLowerCase().includes("permit")
+    );
+
+    const materials    = sanitizeMaterials(rawMaterials, materialCostIndex);
     const labor        = sanitizeLabor(priced?.labor ?? [], laborRate);
 
     const materialTotal = round2(materials.reduce((s, m) => s + m.lineTotal, 0));
@@ -499,7 +593,7 @@ export async function POST(req: Request) {
       }),
     };
 
-    return Response.json({ ...result, laborHours });
+    return Response.json({ ...result, laborHours, laborRate, suggestedPermitFee });
 
   } catch (err: unknown) {
     console.error("[/api/estimate] error:", err);
