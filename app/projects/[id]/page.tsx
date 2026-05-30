@@ -218,7 +218,11 @@ export default function ProjectDetailPage() {
           </a>
           <div className="vs-topbar-divider" />
           <div className="vs-breadcrumb">
+            <a href="/dashboard">Dashboard</a>
+            <span className="vs-breadcrumb-sep">›</span>
             <a href="/projects">Customers</a>
+            <span className="vs-breadcrumb-sep">›</span>
+            <a href="/estimates">Estimates</a>
             <span className="vs-breadcrumb-sep">›</span>
             <span className="vs-breadcrumb-current">{project.customerName}</span>
           </div>

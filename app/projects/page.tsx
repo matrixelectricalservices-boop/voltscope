@@ -317,6 +317,7 @@ export default function ProjectsPage() {
           <div className="vs-topbar-nav">
             <a href="/dashboard" className="vs-nav-link">Dashboard</a>
             <a href="/projects"  className="vs-nav-link active">Customers</a>
+          <a href="/estimates" className="vs-nav-link">Estimates</a>
           </div>
         </nav>
 

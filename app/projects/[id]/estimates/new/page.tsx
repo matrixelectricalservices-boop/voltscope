@@ -590,12 +590,21 @@ export default function NewEstimatePage() {
                       <span className="vs-setting-label">{label}</span>
                       <div className="vs-setting-input-row">
                         <input style={miniInput} inputMode="decimal" value={value}
-                          onChange={(e) => { const v = Number(e.target.value); set(Number.isFinite(v) ? v : 0); }}
-                          onBlur={saveDraft} />
+                          onChange={(e) => { const v = Number(e.target.value); set(Number.isFinite(v) ? v : 0); }} />
                         <span className="vs-setting-suffix">{suffix}</span>
                       </div>
                     </div>
                   ))}
+                  <div style={{ marginLeft: "auto", alignSelf: "flex-end" }}>
+                    <button type="button" onClick={saveDraft} style={{
+                      ...btnGhost,
+                      background: savedConfirm ? DS.greenLight : "transparent",
+                      color: savedConfirm ? DS.green : DS.text2,
+                      borderColor: savedConfirm ? "#A7F3D0" : DS.border,
+                    }}>
+                      {savedConfirm ? "✓ Saved" : "Save"}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

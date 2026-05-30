@@ -298,7 +298,7 @@ export default function DashboardPage() {
           .vs-topbar-user { display: none; }
           .vs-welcome-row { flex-direction: column; gap: 10px; }
           .vs-stat-pills { align-self: flex-start; }
-          .vs-actions-grid { grid-template-columns: 1fr !important; }
+          .vs-actions-grid { grid-template-columns: 1fr 1fr !important; }
           .vs-profile-grid { grid-template-columns: 1fr; }
           .vs-profile-display { grid-template-columns: 1fr; }
         }
@@ -324,6 +324,7 @@ export default function DashboardPage() {
           <div className="vs-topbar-nav">
             <a href="/dashboard" className="vs-nav-link active">Dashboard</a>
             <a href="/projects"  className="vs-nav-link">Customers</a>
+            <a href="/estimates" className="vs-nav-link">Estimates</a>
           </div>
           <div className="vs-topbar-right">
             {profile.name && <span className="vs-topbar-user">{profile.name}</span>}
@@ -351,7 +352,7 @@ export default function DashboardPage() {
                   <span className="vs-stat-pill-label">Customers</span>
                   <span className="vs-stat-pill-value">{customerCount ?? "—"}</span>
                 </a>
-                <a href="/projects" className="vs-stat-pill">
+                <a href="/estimates" className="vs-stat-pill">
                   <span className="vs-stat-pill-label">Estimates</span>
                   <span className="vs-stat-pill-value">{estimateCount ?? "—"}</span>
                 </a>
@@ -374,12 +375,19 @@ export default function DashboardPage() {
           <div className="vs-section-head">
             <span className="vs-section-title">Quick Actions</span>
           </div>
-          <div className="vs-actions-grid" style={{ gridTemplateColumns: "1fr 1fr 1fr" }}>
+          <div className="vs-actions-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
             <a href="/projects" className="vs-action-card">
               <div className="vs-action-icon blue">📋</div>
               <div>
                 <div className="vs-action-title">Customers</div>
                 <div className="vs-action-desc">View all customers and open existing estimates.</div>
+              </div>
+            </a>
+            <a href="/estimates" className="vs-action-card">
+              <div className="vs-action-icon green">📄</div>
+              <div>
+                <div className="vs-action-title">Estimates</div>
+                <div className="vs-action-desc">View all estimates across all customers.</div>
               </div>
             </a>
             <a href="/projects" className="vs-action-card">
