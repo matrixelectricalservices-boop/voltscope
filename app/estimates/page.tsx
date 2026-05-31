@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/app/lib/supabase";
-
+import TopNav from "@/app/components/TopNav";
 const DS = {
   shell:        "#0B0F1A",
   shellBorder:  "rgba(255,255,255,0.07)",
@@ -136,26 +136,7 @@ export default function EstimatesPage() {
       `}</style>
 
       <div className="vs-page">
-        <nav className="vs-topbar">
-          <a href="/" className="vs-logo">
-            <div className="vs-logo-mark">
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <line x1="5" y1="17" x2="5" y2="9" stroke="#2563EB" strokeWidth="2.2" strokeLinecap="round"/>
-                <line x1="15" y1="17" x2="15" y2="9" stroke="#2563EB" strokeWidth="2.2" strokeLinecap="round"/>
-                <path d="M5 9 Q10 2 15 9" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round"/>
-                <circle cx="8" cy="6" r="1.2" fill="#93c5fd"/>
-                <circle cx="12" cy="6" r="1.2" fill="#93c5fd"/>
-              </svg>
-            </div>
-            <span className="vs-logo-name">Sparc<span>Bid</span></span>
-          </a>
-          <div className="vs-topbar-divider" />
-          <div className="vs-topbar-nav">
-            <a href="/dashboard" className="vs-nav-link">Dashboard</a>
-            <a href="/projects"  className="vs-nav-link">Customers</a>
-            <a href="/estimates" className="vs-nav-link active">Estimates</a>
-          </div>
-        </nav>
+       <TopNav  />
 
         <div className="vs-content">
           <div className="vs-page-header">

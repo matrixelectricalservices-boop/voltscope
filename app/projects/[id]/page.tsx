@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getProject, type Project } from "@/app/lib/projectStore";
 import { getEstimatesForProject, deleteEstimate, type SavedEstimate } from "@/app/lib/estimateStore";
-
+import TopNav from "@/app/components/TopNav";
 const DS = {
   shell:        "#0B0F1A",
   shellBorder:  "rgba(255,255,255,0.07)",
@@ -211,27 +211,7 @@ export default function ProjectDetailPage() {
       <div className="vs-page">
 
         {/* Topbar */}
-        <nav className="vs-topbar">
-          <a href="/" className="vs-logo">
-            <LogoMark />
-            <span className="vs-logo-name">Sparc<span>Bid</span></span>
-          </a>
-          <div className="vs-topbar-divider" />
-          <div className="vs-breadcrumb">
-            <a href="/dashboard">Dashboard</a>
-            <span className="vs-breadcrumb-sep">›</span>
-            <a href="/projects">Customers</a>
-            <span className="vs-breadcrumb-sep">›</span>
-            <a href="/estimates">Estimates</a>
-            <span className="vs-breadcrumb-sep">›</span>
-            <span className="vs-breadcrumb-current">{project.customerName}</span>
-          </div>
-          <div className="vs-topbar-right">
-            <Link href={`/projects/${project.id}/estimates/new`} className="vs-btn-primary">
-              + New Estimate
-            </Link>
-          </div>
-        </nav>
+     <TopNav  />
 
         <div className="vs-content">
 
