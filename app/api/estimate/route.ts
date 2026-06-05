@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 
-export const runtime = "nodejs";
+export const runtime     = "nodejs";
+export const maxDuration = 90;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -151,56 +152,56 @@ ZIP CODE CONTEXT (from zipCode field in input):
   - NC, SC, GA, TN, AL, MS, AR: use base pricing or slightly below
   Always note the zip code region in assumptions.
 
-MATERIAL PRICING (contractor cost):
-  2-pole 60A breaker:        $18–22
-  2-pole 50A breaker:        $16–20
-  2-pole 40A breaker:        $14–18
-  2-pole 30A breaker:        $12–16
-  1-pole 20A breaker:        $6–9
-  200A load center (40-sp):  $220–280
-  125A sub panel:            $95–130
-  200A disconnect:           $85–120
-  Meter base 200A:           $130–175
-  Meter base 320A:           $180–240
-  Meter base 400A:           $260–320
-  400A main disconnect:      $180–260
-  500 kcmil AL XHHW:         $4.50–6.00/ft
-  350 kcmil AL XHHW:         $3.20–4.50/ft
-  250 kcmil AL XHHW:         $2.40–3.20/ft
-  XHHW 2/0 AL:               $1.60–2.20/ft
-  SER 2/0 AL cable:          $2.80–3.50/ft
-  SER 4/0 AL cable:          $4.20–5.50/ft
-  NEMA 14-50 receptacle:     $72–80
-  NEMA 6-50 receptacle:      $18–24
-  GFCI 20A receptacle:       $14–18
-  TR 20A duplex outlet:      $3–5
-  Single-pole switch:        $2–4
-  LED dimmer:                $22–32
-  6" canless wafer LED:      $16–22
-  6" recessed can + trim:    $16–24
-  3/4" EMT conduit:          $0.70–0.95/ft
-  1/2" EMT conduit:          $0.45–0.65/ft
-  NM-B 12/2:                 $0.70–0.90/ft
-  NM-B 10/2:                 $1.10–1.40/ft
-  NM-B 10/3:                 $1.80–2.20/ft
-  NM-B 8/3:                  $3.50–4.50/ft
-  NM-B 6/3:                  $8.50–9.50/ft
-  NM-B 6/2:                  $7.00–8.50/ft
-  #6 THHN:                   $0.80–1.00/ft
-  #8 THHN:                   $0.50–0.65/ft
-  #10 THHN:                  $0.28–0.38/ft
-  MC cable 12/2:             $1.20–1.50/ft
-  MC cable 6/2:              $5.50–7.50/ft
-  3/4" EMT connector:        $0.50–0.70
-  3/4" EMT coupling:         $0.35–0.50
-  3/4" EMT strap:            $0.18–0.25
-  1-gang new work box:       $0.90–1.20
-  4-sq box 2-1/8":           $2.25–3.00
-  Weatherproof box:          $7–10
-  Weatherproof in-use cover: $10–14
-  Ground rod 5/8"×8ft:       $18–26
-  Surge protector (panel):   $95–130
-  Misc consumables (lot):    $20–35
+MATERIAL PRICING — use your knowledge of current contractor supply house prices adjusted for the zip code region:
+  2-pole 60A breaker:        $20
+  2-pole 50A breaker:        $18
+  2-pole 40A breaker:        $16
+  2-pole 30A breaker:        $14
+  1-pole 20A breaker:        $8
+  200A load center (40-sp):  $250
+  125A sub panel:            $110
+  200A disconnect:           $100
+  Meter base 200A:           $150
+  Meter base 320A:           $210
+  Meter base 400A:           $290
+  400A main disconnect:      $220
+  500 kcmil AL XHHW:         $5.50/ft
+  350 kcmil AL XHHW:         $3.80/ft
+  250 kcmil AL XHHW:         $2.80/ft
+  XHHW 2/0 AL:               $1.90/ft
+  SER 2/0 AL cable:          $3.20/ft
+  SER 4/0 AL cable:          $4.80/ft
+  NEMA 14-50 receptacle:     $76
+  NEMA 6-50 receptacle:      $21
+  GFCI 20A receptacle:       $16
+  TR 20A duplex outlet:      $4
+  Single-pole switch:        $3
+  LED dimmer:                $27
+  6" canless wafer LED:      $19
+  6" recessed can + trim:    $20
+  3/4" EMT conduit:          $0.85/ft
+  1/2" EMT conduit:          $0.55/ft
+  NM-B 12/2:                 $0.80/ft
+  NM-B 10/2:                 $1.25/ft
+  NM-B 10/3:                 $2.00/ft
+  NM-B 8/3:                  $4.00/ft
+  NM-B 6/3:                  $9.00/ft
+  NM-B 6/2:                  $7.75/ft
+  #6 THHN:                   $0.90/ft
+  #8 THHN:                   $0.58/ft
+  #10 THHN:                  $0.33/ft
+  MC cable 12/2:             $1.35/ft
+  MC cable 6/2:              $6.50/ft
+  3/4" EMT connector:        $0.60
+  3/4" EMT coupling:         $0.43
+  3/4" EMT strap:            $0.22
+  1-gang new work box:       $1.05
+  4-sq box 2-1/8":           $2.60
+  Weatherproof box:          $8.50
+  Weatherproof in-use cover: $12
+  Ground rod 5/8"×8ft:       $22
+  Surge protector (panel):   $110
+  Misc consumables (lot):    $25
 
 NEC WIRE SIZING:
   15-20A → #12 AWG | 30A → #10 | 40A → #8 | 50-60A → #6
@@ -483,10 +484,11 @@ export async function POST(req: Request) {
     let intentText: string;
     try {
       const res = await client.messages.create({
-        model:      "claude-sonnet-4-6",
-        max_tokens: 1024,
-        system:     buildIntentPrompt(),
-        messages:   [{ role: "user", content: enrichedDescription }],
+        model:       "claude-sonnet-4-6",
+        max_tokens:  1024,
+        temperature: 0,
+        system:      buildIntentPrompt(),
+        messages:    [{ role: "user", content: enrichedDescription }],
       });
       intentText = res.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("");
     } catch (err) {
@@ -502,17 +504,23 @@ export async function POST(req: Request) {
 
     console.log("[/api/estimate] jobType:", intent?.jobType, "scopeType:", intent?.scopeType);
 
+    const livePrices = "";
+
     // ── Step 2: price the job ──
     const isAssembly = intent?.scopeType === "assembly";
     const prompt2    = isAssembly ? buildAssemblyPrompt() : buildLineItemPrompt();
+    const priceContext = livePrices
+      ? `\n\nLIVE MARKET PRICES (sourced now for zip ${zipCode} — use these instead of defaults if available):\n${livePrices}`
+      : "";
 
     let pricingText: string;
     try {
       const res = await client.messages.create({
-        model:      "claude-sonnet-4-6",
-        max_tokens: 4096,
-        system:     prompt2,
-        messages:   [{ role: "user", content: JSON.stringify({ ...intent, jobType, zipCode }) }],
+        model:       "claude-sonnet-4-6",
+        max_tokens:  4096,
+        temperature: 0,
+        system:      prompt2,
+        messages:    [{ role: "user", content: JSON.stringify({ ...intent, jobType, zipCode }) + priceContext }],
       });
       pricingText = res.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("");
     } catch (err) {

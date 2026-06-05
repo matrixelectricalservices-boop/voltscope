@@ -8,7 +8,7 @@ import { getProjects, type Project } from "../../../../lib/projectStore";
 import { generateEstimatePdf } from "../../../../lib/generateEstimatePdf";
 import { loadProfile } from "../../../../lib/userProfile";
 import { saveEstimate, updateEstimate, getEstimate } from "../../../../lib/estimateStore";
-import TopNav from "@/app/components/TopNav";
+
 const DS = {
   shell:       "#0B0F1A",
   shellBorder: "rgba(255,255,255,0.07)",
@@ -251,7 +251,7 @@ export default function NewEstimatePage() {
     setZipError("");
     setGenState({ status: "loading" });
     const controller = new AbortController();
-    const timeoutId  = window.setTimeout(() => controller.abort(), 55_000);
+    const timeoutId  = window.setTimeout(() => controller.abort(), 90_000);
     try {
       const res  = await fetch("/api/estimate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ description: text, jobType, zipCode: zipCode.trim(), laborRate, markupPct, permitFee, materialCostIndex }), signal: controller.signal });
       const data = await res.json().catch(() => null);
@@ -434,7 +434,34 @@ export default function NewEstimatePage() {
       <div className="vs-page">
 
         {/* Topbar */}
-     <TopNav  />
+        <nav className="vs-topbar">
+          <a href="/" className="vs-logo">
+            <LogoMark />
+            <span className="vs-logo-name">Sparc<span>Bid</span></span>
+          </a>
+          <div className="vs-topbar-divider" />
+          <div className="vs-breadcrumb">
+            <a href="/projects">Customers</a>
+            <span className="vs-breadcrumb-sep">›</span>
+            <a href={`/projects/${projectId}`}>{project?.customerName ?? "Customer"}</a>
+            <span className="vs-breadcrumb-sep">›</span>
+            <span className="vs-breadcrumb-current">Estimate</span>
+          </div>
+          <div className="vs-topbar-right">
+            {uiState.isSaved && uiState.lastSavedAt && (
+              <span className="vs-save-status">
+                Saved {new Date(uiState.lastSavedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              </span>
+            )}
+            <button type="button" onClick={saveDraft} style={{
+              ...btnPrimary, fontSize: 13, padding: "7px 14px",
+              background: savedConfirm ? `linear-gradient(135deg, ${DS.green} 0%, #047857 100%)` : `linear-gradient(135deg, ${DS.blue} 0%, ${DS.blueDark} 100%)`,
+              boxShadow: savedConfirm ? "0 4px 14px rgba(5,150,105,0.35)" : DS.blueShadow,
+            }}>
+              {savedConfirm ? "✓ Saved" : "Save"}
+            </button>
+          </div>
+        </nav>
 
         <div className="vs-content">
 
