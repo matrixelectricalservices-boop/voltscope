@@ -480,23 +480,52 @@ export async function POST(req: Request) {
 
     const t0 = Date.now();
 
-    // ── Step 1: extract intent ──
-    let intentText: string;
-    try {
-      const res = await client.messages.create({
+    // ── Run step 1 and pricebook load in parallel ──
+    const [intentResult, pricebookResult] = await Promise.allSettled([
+
+      // Step 1: extract intent
+      client.messages.create({
         model:       "claude-sonnet-4-6",
         max_tokens:  1024,
         temperature: 0,
         system:      buildIntentPrompt(),
         messages:    [{ role: "user", content: enrichedDescription }],
-      });
-      intentText = res.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("");
-    } catch (err) {
-      console.error("[/api/estimate] step1 error:", err);
+      }),
+
+      // Pricebook: load from Supabase with timeout
+      Promise.race([
+        (async () => {
+          const { createClient } = await import("@supabase/supabase-js");
+          const db = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+          );
+          const { data } = await db.from("pricebook").select("item_name, unit_cost, unit");
+          return data ?? [];
+        })(),
+        new Promise<[]>(r => setTimeout(() => r([]), 5000)), // 5s timeout
+      ]),
+    ]);
+
+    // Extract intent
+    if (intentResult.status === "rejected") {
+      console.error("[/api/estimate] step1 error:", intentResult.reason);
       return Response.json({ error: "Step 1 failed — please try again." }, { status: 502 });
     }
+    const intentText = intentResult.value.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("");
 
-    console.log("[/api/estimate] step1 ms:", Date.now() - t0);
+    // Build pricebook context
+    let pricebookContext = "";
+    if (pricebookResult.status === "fulfilled" && pricebookResult.value.length > 0) {
+      const prices = pricebookResult.value as Array<{ item_name: string; unit_cost: number; unit: string }>;
+      const priceList = prices.map(p => `  ${p.item_name}: $${p.unit_cost}/${p.unit}`).join("\n");
+      pricebookContext = `\n\nCURRENT PRICEBOOK (use these exact prices — do not override):\n${priceList}`;
+      console.log("[/api/estimate] loaded", prices.length, "pricebook items");
+    } else {
+      console.warn("[/api/estimate] pricebook not loaded, using defaults");
+    }
+
+    console.log("[/api/estimate] step1 + pricebook ms:", Date.now() - t0);
 
     let intent: any = null;
     try { intent = parseJSON(intentText); }
@@ -504,14 +533,10 @@ export async function POST(req: Request) {
 
     console.log("[/api/estimate] jobType:", intent?.jobType, "scopeType:", intent?.scopeType);
 
-    const livePrices = "";
-
     // ── Step 2: price the job ──
     const isAssembly = intent?.scopeType === "assembly";
     const prompt2    = isAssembly ? buildAssemblyPrompt() : buildLineItemPrompt();
-    const priceContext = livePrices
-      ? `\n\nLIVE MARKET PRICES (sourced now for zip ${zipCode} — use these instead of defaults if available):\n${livePrices}`
-      : "";
+    const priceContext = pricebookContext;
 
     let pricingText: string;
     try {
