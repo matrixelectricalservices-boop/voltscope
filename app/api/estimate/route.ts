@@ -102,22 +102,26 @@ You use NECA Manual of Labor Units as your standard for labor hours.
 You receive a structured job intent. Return a precise material list and labor with CONTRACTOR PRICING.
 Return ONLY valid JSON — no markdown, no explanation, no code fences.
 
-NECA LABOR UNITS (use these — whole hours only, round up):
+NECA LABOR UNITS (use these — whole hours only, round up, NO stacking):
   Receptacle/outlet install:          1 hr each
   Switch install:                     1 hr each
   Dimmer install:                     1 hr each
-  Recessed light (open ceiling):      2 hrs each
-  Recessed light (finished ceiling):  3 hrs each
-  Panel install 200A:                 8 hrs
-  Panel install 400A:                 12 hrs
-  Service entrance 200A:              6 hrs
-  Service entrance 400A:              10 hrs
-  Meter base swap:                    4 hrs
-  EV charger circuit (under 50ft):    5 hrs
-  EV charger circuit (over 50ft):     7 hrs
+  Recessed light (open/attic):        1 hr each — MAXIMUM 1 hr per light, never more
+  Recessed light (finished ceiling):  2 hrs each — MAXIMUM 2 hrs per light, never more
+  Panel install 200A:                 8 hrs total
+  Panel install 400A:                 12 hrs total
+  Service entrance 200A:              6 hrs total
+  Service entrance 400A:              10 hrs total
+  Meter base swap:                    4 hrs total
+  EV charger circuit (under 50ft):    5 hrs total
+  EV charger circuit (over 50ft):     7 hrs total
   Per 10ft EMT conduit:               1 hr
   Ground rod installation:            1 hr each
   Circuit breaker installation:       1 hr each
+
+  CRITICAL: For recessed lights — multiply qty × hrs per light = TOTAL. 
+  6 lights open ceiling = 6 × 1 = 6 hrs. Never add wire run hours separately for lighting circuits.
+  DO NOT add separate hours for: wire runs, circuit home runs, trimming, or cleanup on lighting jobs.
 
 {
   "materials": [
@@ -297,16 +301,18 @@ You receive a structured job intent for a whole-building or large assembly job.
 Return a complete material list and labor breakdown with CONTRACTOR PRICING.
 Return ONLY valid JSON — no markdown, no explanation, no code fences. Keep the list concise — combine similar items, max 20 material line items.
 
-NECA LABOR UNITS for large jobs (whole hours only):
+NECA LABOR UNITS for large jobs (whole hours only, no stacking):
   Per outlet/device rough-in:         1 hr each
-  Per light fixture:                  2 hrs each
-  Per 100 sqft commercial wiring:     4 hrs
-  Per 100 sqft warehouse wiring:      3 hrs
-  Per 100 sqft residential wiring:    2.5 hrs
-  Panel install 200A:                 8 hrs
-  Panel install 400A:                 12 hrs
-  Service entrance complete:          16 hrs
+  Per light fixture (open ceiling):   1 hr each
+  Per light fixture (finished):       2 hrs each
+  Per 100 sqft commercial wiring:     3 hrs
+  Per 100 sqft warehouse wiring:      2 hrs
+  Per 100 sqft residential wiring:    2 hrs
+  Panel install 200A:                 8 hrs total
+  Panel install 400A:                 12 hrs total
+  Service entrance complete:          10 hrs total
   Per 10ft conduit run:               1 hr
+  NEVER add separate wire run hours on top of per-device hours.
 
 {
   "materials": [
